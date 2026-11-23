@@ -5,6 +5,7 @@ import { VillaDataProvider } from './contexts/VillaDataContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppShell } from './components/AppShell';
+import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AllBookingsPage } from './pages/AllBookingsPage';
@@ -26,54 +27,54 @@ const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return <>{children}</>;
 };
 
+const OperationsLayout: React.FC = () => (
+  <VillaDataProvider>
+    <RequireStaff>
+      <AppShell />
+    </RequireStaff>
+  </VillaDataProvider>
+);
+
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <VillaDataProvider>
-          <ToastProvider>
-            <BrowserRouter>
-              <Routes>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route element={<OperationsLayout />}>
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="bookings" element={<AllBookingsPage />} />
+                <Route path="events" element={<EventsPage />} />
+                <Route path="shoots" element={<ShootsPage />} />
+                <Route path="rooms" element={<RoomsPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="calendar" element={<CalendarPage />} />
+                <Route path="archived" element={<ArchivedPage />} />
                 <Route
-                  path="/"
+                  path="staff"
                   element={
-                    <RequireStaff>
-                      <AppShell />
-                    </RequireStaff>
+                    <RequireAdmin>
+                      <StaffManagementPage />
+                    </RequireAdmin>
                   }
-                >
-                  <Route index element={<DashboardPage />} />
-                  <Route path="bookings" element={<AllBookingsPage />} />
-                  <Route path="events" element={<EventsPage />} />
-                  <Route path="shoots" element={<ShootsPage />} />
-                  <Route path="rooms" element={<RoomsPage />} />
-                  <Route path="payments" element={<PaymentsPage />} />
-                  <Route path="calendar" element={<CalendarPage />} />
-                  <Route path="archived" element={<ArchivedPage />} />
-                  <Route
-                    path="staff"
-                    element={
-                      <RequireAdmin>
-                        <StaffManagementPage />
-                      </RequireAdmin>
-                    }
-                  />
-                  <Route
-                    path="audit-logs"
-                    element={
-                      <RequireAdmin>
-                        <AuditLogsPage />
-                      </RequireAdmin>
-                    }
-                  />
-                  <Route path="settings" element={<SettingsPage />} />
-                </Route>
-                <Route path="login" element={<LoginPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
-          </ToastProvider>
-        </VillaDataProvider>
+                />
+                <Route
+                  path="audit-logs"
+                  element={
+                    <RequireAdmin>
+                      <AuditLogsPage />
+                    </RequireAdmin>
+                  }
+                />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

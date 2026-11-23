@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
+  getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   User,
 } from 'firebase/auth';
@@ -16,6 +17,7 @@ import {
 
 interface AuthContextValue {
   firebaseUser: User | null;
+  firebaseAuthenticated: boolean;
   currentStaff: StaffMember | null;
   authReady: boolean;
   signingIn: boolean;
@@ -50,6 +52,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(MOCK_FIREBASE_USER);
+  const [firebaseAuthenticated, setFirebaseAuthenticated] = useState(false);
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(DEFAULT_STAFF);
   const [authReady, setAuthReady] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
@@ -95,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } finally {
         loggedLoginUidRef.current = null;
         setInactivityWarningSeconds(null);
+        setFirebaseAuthenticated(false);
         setCurrentStaff(DEFAULT_STAFF);
         try {
           await signOut(auth);
@@ -107,14 +111,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   useEffect(() => {
+    let active = true;
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) setAccessError(null);
+      })
+      .catch((error) => {
+        if (active) {
+          setAccessError(error instanceof Error ? error.message : 'Sign-in failed.');
+        }
+      })
+      .finally(() => {
+        if (active) setSigningIn(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        setFirebaseAuthenticated(false);
         setFirebaseUser(MOCK_FIREBASE_USER);
         setCurrentStaff(DEFAULT_STAFF);
         setAuthReady(true);
         return;
       }
 
+      setFirebaseAuthenticated(true);
       setFirebaseUser(user);
       setAccessError(null);
 
@@ -184,13 +210,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSigningIn(true);
     setAccessError(null);
     try {
-      await signInWithPopup(auth, googleAuthProvider);
+      await signInWithRedirect(auth, googleAuthProvider);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Sign-in failed.';
-      if (!msg.includes('popup-closed-by-user')) {
-        setAccessError(msg);
-      }
-    } finally {
+      setAccessError(msg);
       setSigningIn(false);
     }
   }, []);
@@ -199,6 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         firebaseUser,
+        firebaseAuthenticated,
         currentStaff,
         authReady,
         signingIn,

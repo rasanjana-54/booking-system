@@ -22,7 +22,7 @@ import { useVillaData } from '../contexts/VillaDataContext';
 import { getColomboDateStr, getColomboTimeStr } from '../utils/colomboTime';
 
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard',
+  '/dashboard': 'Dashboard',
   '/bookings': 'All Bookings',
   '/events': 'Events',
   '/shoots': 'Photoshoots',
@@ -46,7 +46,7 @@ export const AppShell: React.FC = () => {
   const pageTitle = PAGE_TITLES[location.pathname] || 'Operations';
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
     { to: '/bookings', label: 'All Bookings', icon: ListChecks, adminOnly: false },
     { to: '/events', label: 'Events', icon: PartyPopper, adminOnly: false },
     { to: '/shoots', label: 'Photoshoots', icon: Camera, adminOnly: false },

@@ -1,9 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const { firebaseUser, signingIn, accessError, signInWithGoogle, logout } = useAuth();
+  const {
+    firebaseUser,
+    firebaseAuthenticated,
+    authReady,
+    signingIn,
+    accessError,
+    signInWithGoogle,
+    logout,
+  } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (authReady && firebaseAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [authReady, firebaseAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#F7F6F2]">
@@ -70,7 +86,7 @@ export const LoginPage: React.FC = () => {
           )}
 
           <div className="mt-6 space-y-3">
-            {firebaseUser ? (
+            {firebaseAuthenticated && firebaseUser ? (
               <div className="space-y-3">
                 <div className="rounded-lg border border-[#E2DFD5] bg-[#F7F6F2] p-3.5 text-xs">
                   <p className="text-[#6E6C63]">Signed in as</p>
