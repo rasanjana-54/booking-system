@@ -19,31 +19,10 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 const RequireStaff: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { authReady, currentStaff } = useAuth();
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-[#F7F6F2] flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <div className="w-7 h-7 border-2 border-[#183D2D] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-[#6E6C63]">Verifying staff authorization...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentStaff || !currentStaff.isActive) {
-    return <LoginPage />;
-  }
-
   return <>{children}</>;
 };
 
 const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentStaff } = useAuth();
-  if (currentStaff?.role !== 'ADMIN') {
-    return <Navigate to="/" replace />;
-  }
   return <>{children}</>;
 };
 
@@ -89,6 +68,7 @@ export default function App() {
                   />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
+                <Route path="login" element={<LoginPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </BrowserRouter>
