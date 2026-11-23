@@ -6,7 +6,7 @@ A private internal operations portal built for **up to 4 authorized villa manage
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS v4, React Router, Axios, React Hook Form, Zod validation, Lucide Icons.
 - **Backend**: Node.js + Express.js (`server.ts`, `src/server/routes/api.ts`), TypeScript REST API, Helmet security headers, `express-rate-limit`, CSRF origin/header verification, and server-side Firebase ID token verification.
-- **Database & Auth**: Firebase Authentication (email/password) + Cloud Firestore with hardened zero-trust security rules (`firestore.rules`) and schema blueprint (`firebase-blueprint.json`).
+- **Database & Auth**: Firebase Authentication (Google Sign-In) + Cloud Firestore with hardened zero-trust security rules (`firestore.rules`) and schema blueprint (`firebase-blueprint.json`).
 - **Timezone Standard**: All date filtering, availability checks, and timestamps strictly evaluate in `Asia/Colombo` (`UTC+05:30`).
 
 ## Data Model & Relationships
@@ -23,7 +23,7 @@ A private internal operations portal built for **up to 4 authorized villa manage
 
 ## Security Safeguards
 
-- **4-Account Private Allowlist**: Bootstrapped administrator (`rnimsara54@gmail.com`) provisions up to 3 additional staff email accounts in Staff Management. Unauthorized or deactivated accounts are denied across React routes, Express API middleware, and Firestore Security Rules.
+- **4-Account Private Allowlist**: Bootstrapped administrator (`rnimsara54@gmail.com`) provisions up to 3 additional staff Google accounts in Staff Management. Unauthorized or deactivated Google accounts are denied across React routes, Express API middleware, and Firestore Security Rules.
 - **Role-Based Access Control (RBAC)**: Only `ADMIN` accounts can manage staff, view audit logs, restore or permanently delete archived records, void/adjust payments, export backups, and update villa settings.
 - **Express API Security**: Helmet headers, rate limiting on auth and API endpoints, CSRF validation on state-changing requests, Zod input validation, and server-side schedule conflict enforcement.
 - **Inactivity Session Expiration**: Tracks user activity and automatically signs out after the configured idle timeout (default 30 minutes) with a 2-minute warning prompt.
@@ -35,17 +35,16 @@ A private internal operations portal built for **up to 4 authorized villa manage
    ```bash
    npm install
    ```
-2. **Configure Firebase Authentication**: Enable the Email/Password provider in Firebase Console and create a password-based Firebase Authentication user for each authorized staff email. Staff Management only maintains the application allowlist; it does not create Authentication users. Staff must use verified email accounts.
-3. **Lint security rules & TypeScript**:
+2. **Lint security rules & TypeScript**:
    ```bash
    npx eslint firestore.rules
    npm run lint
    ```
-4. **Run full-stack development server (Express + Vite middleware on port 3000)**:
+3. **Run full-stack development server (Express + Vite middleware on port 3000)**:
    ```bash
    npm run dev
    ```
-5. **Build & run production server**:
+4. **Build & run production server**:
    ```bash
    npm run build
    NODE_ENV=production npm start

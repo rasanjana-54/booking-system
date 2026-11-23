@@ -161,7 +161,7 @@ export const blockedScheduleSchema = z
   );
 
 export const staffSchema = z.object({
-  email: z.string().trim().email('Valid email address required').max(120),
+  email: z.string().trim().email('Valid Google email address required').max(120),
   name: z.string().trim().min(2, 'Full name required').max(100),
   role: z.enum(['ADMIN', 'STAFF']),
   phone: z.string().trim().max(30).optional().or(z.literal('')),

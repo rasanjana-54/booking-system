@@ -105,7 +105,7 @@ export async function requireStaffAuth(
     const decoded = await adminAuth.verifyIdToken(token);
     const email = (decoded.email || '').trim().toLowerCase();
     if (!email || !decoded.email_verified) {
-      res.status(403).json({ error: 'Forbidden: A verified email address is required.' });
+      res.status(403).json({ error: 'Forbidden: A verified Google email is required.' });
       return;
     }
 

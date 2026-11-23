@@ -22,7 +22,7 @@ async function startServer() {
 
   app.set('trust proxy', 1);
 
-  // Security headers (frameguard & COOP disabled to preserve AI Studio iframe embedding)
+  // Security headers (frameguard & COOP disabled to preserve AI Studio iframe + Google Sign-In popup)
   app.use(
     helmet({
       contentSecurityPolicy: false,

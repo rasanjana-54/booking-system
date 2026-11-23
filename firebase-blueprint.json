@@ -8,7 +8,7 @@
         "email": {
           "type": "string",
           "format": "email",
-          "description": "Staff account email address (lowercase)",
+          "description": "Staff Google account email address (lowercase)",
           "maxLength": 120
         },
         "name": {

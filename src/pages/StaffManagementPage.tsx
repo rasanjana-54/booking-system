@@ -189,7 +189,7 @@ export const StaffManagementPage: React.FC = () => {
                     Unassigned Staff Seat
                   </p>
                   <p className="text-xs text-[#6E6C63] mt-0.5">
-                    Authorize an email account for villa management access.
+                    Authorize a Google account for villa management access.
                   </p>
                 </div>
                 <button
@@ -289,7 +289,7 @@ export const StaffManagementPage: React.FC = () => {
                   {editingStaff ? 'Edit Staff Account' : 'Provision Authorized Staff'}
                 </h3>
                 <p className="text-xs text-[#6E6C63]">
-                  Only staff accounts listed here may sign in.
+                  Only Google accounts listed here may sign in.
                 </p>
               </div>
               <button
@@ -310,7 +310,7 @@ export const StaffManagementPage: React.FC = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
               <div>
                 <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Staff Email Address
+                  Google Email Address
                 </label>
                 <input
                   type="email"
