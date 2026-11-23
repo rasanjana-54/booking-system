@@ -1,0 +1,6 @@
+{
+  "name": "Verdant Crest Villa — Operations",
+  "description": "Private internal villa management portal for authorized staff to manage events, photoshoots, room reservations, payments, calendar availability, and audit logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,744 @@
+{
+  "entities": {
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "Authorized villa management staff account (maximum 4 accounts).",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Staff Google account email address (lowercase)",
+          "maxLength": 120
+        },
+        "name": {
+          "type": "string",
+          "description": "Staff member full name",
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ADMIN", "STAFF"],
+          "description": "Access role"
+        },
+        "slotNumber": {
+          "type": "integer",
+          "description": "Fixed authorized slot from 1 to 4"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number",
+          "maxLength": 30
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether account is currently active"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Linked Firebase Auth UID upon sign-in",
+          "maxLength": 128
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last sign-in timestamp"
+        },
+        "adminEmails": {
+          "type": "array",
+          "description": "Active administrator emails for O(1) list filtering"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "name", "role", "slotNumber", "isActive", "adminEmails", "createdBy", "createdAt", "updatedAt"]
+    },
+    "EventBooking": {
+      "title": "EventBooking",
+      "description": "Private villa event booking record.",
+      "type": "object",
+      "properties": {
+        "bookingCode": {
+          "type": "string",
+          "pattern": "^EVT-[0-9]{4}-[0-9]{4}$",
+          "maxLength": 20
+        },
+        "eventType": {
+          "type": "string",
+          "enum": ["Wedding", "Birthday", "Engagement", "Corporate Event", "Private Party", "Other"]
+        },
+        "venueResource": {
+          "type": "string",
+          "enum": ["Full Estate", "Main Lawn & Poolside", "Indoor Courtyard", "Garden Pavilion"]
+        },
+        "eventDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "startTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "endTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "paxCount": {
+          "type": "integer"
+        },
+        "customerName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "totalPayment": {
+          "type": "number"
+        },
+        "advancePayment": {
+          "type": "number"
+        },
+        "duePayment": {
+          "type": "number"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["UNPAID", "PARTIALLY_PAID", "FULLY_PAID", "OVERPAID"]
+        },
+        "specialNotes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Confirmed", "Completed", "Cancelled"]
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "archivedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "archivedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "bookingCode",
+        "eventType",
+        "venueResource",
+        "eventDate",
+        "startTime",
+        "endTime",
+        "paxCount",
+        "customerName",
+        "customerPhone",
+        "totalPayment",
+        "advancePayment",
+        "duePayment",
+        "paymentStatus",
+        "status",
+        "isArchived",
+        "authorizedEmails",
+        "createdBy",
+        "createdByName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ShootBooking": {
+      "title": "ShootBooking",
+      "description": "Photoshoot or video shoot booking record.",
+      "type": "object",
+      "properties": {
+        "bookingCode": {
+          "type": "string",
+          "pattern": "^SHT-[0-9]{4}-[0-9]{4}$",
+          "maxLength": 20
+        },
+        "shootDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "shootType": {
+          "type": "string",
+          "enum": ["Photography", "Videography", "Wedding Shoot", "Fashion Shoot", "Commercial Shoot", "Other"]
+        },
+        "venueResource": {
+          "type": "string",
+          "enum": ["Full Estate", "Main Lawn & Poolside", "Indoor Courtyard", "Garden Pavilion"]
+        },
+        "startTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "endTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "customerName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "totalPayment": {
+          "type": "number"
+        },
+        "advancePayment": {
+          "type": "number"
+        },
+        "duePayment": {
+          "type": "number"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["UNPAID", "PARTIALLY_PAID", "FULLY_PAID", "OVERPAID"]
+        },
+        "specialNotes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Confirmed", "Completed", "Cancelled"]
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "archivedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "archivedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "bookingCode",
+        "shootDate",
+        "shootType",
+        "venueResource",
+        "startTime",
+        "endTime",
+        "customerName",
+        "customerPhone",
+        "totalPayment",
+        "advancePayment",
+        "duePayment",
+        "paymentStatus",
+        "status",
+        "isArchived",
+        "authorizedEmails",
+        "createdBy",
+        "createdByName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomType": {
+      "title": "RoomType",
+      "description": "Villa suite or room unit definition.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "maxCapacity": {
+          "type": "integer"
+        },
+        "price": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Available", "Maintenance", "Inactive"]
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["roomCode", "name", "description", "maxCapacity", "price", "status", "isArchived", "authorizedEmails", "createdBy", "createdAt", "updatedAt"]
+    },
+    "RoomBooking": {
+      "title": "RoomBooking",
+      "description": "Villa room reservation record.",
+      "type": "object",
+      "properties": {
+        "bookingCode": {
+          "type": "string",
+          "pattern": "^ROM-[0-9]{4}-[0-9]{4}$",
+          "maxLength": 20
+        },
+        "roomTypeId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "roomTypeName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "customerName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "foodStatus": {
+          "type": "string",
+          "enum": ["Included", "Not Included", "Pending"]
+        },
+        "checkInDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "checkInTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "checkOutDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "checkOutTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "totalPayment": {
+          "type": "number"
+        },
+        "advancePayment": {
+          "type": "number"
+        },
+        "duePayment": {
+          "type": "number"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["UNPAID", "PARTIALLY_PAID", "FULLY_PAID", "OVERPAID"]
+        },
+        "specialNotes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Confirmed", "Checked-in", "Checked-out", "Cancelled"]
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "archivedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "archivedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "bookingCode",
+        "roomTypeId",
+        "roomTypeName",
+        "customerName",
+        "customerPhone",
+        "foodStatus",
+        "checkInDate",
+        "checkInTime",
+        "checkOutDate",
+        "checkOutTime",
+        "totalPayment",
+        "advancePayment",
+        "duePayment",
+        "paymentStatus",
+        "status",
+        "isArchived",
+        "authorizedEmails",
+        "createdBy",
+        "createdByName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Centralized payment ledger entry linked to an Event, Shoot, or Room booking.",
+      "type": "object",
+      "properties": {
+        "paymentCode": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "bookingId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "bookingCode": {
+          "type": "string",
+          "maxLength": 24
+        },
+        "bookingType": {
+          "type": "string",
+          "enum": ["EVENT", "SHOOT", "ROOM"]
+        },
+        "customerName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "amount": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["Cash", "Bank Transfer", "Card", "Other"]
+        },
+        "paymentDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "referenceNumber": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "isAdjustment": {
+          "type": "boolean"
+        },
+        "adjustmentReason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "isVoided": {
+          "type": "boolean"
+        },
+        "recordedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "recordedByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "paymentCode",
+        "bookingId",
+        "bookingCode",
+        "bookingType",
+        "customerName",
+        "amount",
+        "paymentMethod",
+        "paymentDate",
+        "isAdjustment",
+        "isVoided",
+        "recordedBy",
+        "recordedByName",
+        "authorizedEmails",
+        "createdAt"
+      ]
+    },
+    "BlockedSchedule": {
+      "title": "BlockedSchedule",
+      "description": "Unavailable date/time block set by authorized villa staff.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["FULL_VILLA", "EVENT_GROUNDS", "SHOOT_GROUNDS", "ROOM"]
+        },
+        "roomTypeId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "roomTypeName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "startDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "endDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "maxLength": 10
+        },
+        "startTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "endTime": {
+          "type": "string",
+          "pattern": "^[0-9]{2}:[0-9]{2}$",
+          "maxLength": 5
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["scope", "startDate", "endDate", "startTime", "endTime", "reason", "authorizedEmails", "createdBy", "createdByName", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and operations audit log (Admin readable only).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "userEmail": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "userName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "recordType": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "recordId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "adminEmails": {
+          "type": "array"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "userEmail", "userName", "action", "recordType", "recordId", "summary", "adminEmails", "timestamp"]
+    },
+    "VillaSettings": {
+      "title": "VillaSettings",
+      "description": "Global villa configuration and security settings.",
+      "type": "object",
+      "properties": {
+        "villaName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "timezone": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["LKR", "USD"]
+        },
+        "inactivityTimeoutMinutes": {
+          "type": "integer"
+        },
+        "authorizedEmails": {
+          "type": "array"
+        },
+        "adminEmails": {
+          "type": "array"
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["villaName", "timezone", "currency", "inactivityTimeoutMinutes", "authorizedEmails", "adminEmails", "updatedBy", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/staff/{staffId}": {
+      "schema": { "$ref": "#/entities/StaffMember" },
+      "description": "Authorized staff directory (max 4 staff slots)."
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/EventBooking" },
+      "description": "Event bookings collection."
+    },
+    "/shoots/{shootId}": {
+      "schema": { "$ref": "#/entities/ShootBooking" },
+      "description": "Photoshoot and video shoot bookings collection."
+    },
+    "/room_types/{roomTypeId}": {
+      "schema": { "$ref": "#/entities/RoomType" },
+      "description": "Villa room types / suites collection."
+    },
+    "/room_bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/RoomBooking" },
+      "description": "Room reservations collection."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Centralized payment ledger collection."
+    },
+    "/blocked_schedules/{blockId}": {
+      "schema": { "$ref": "#/entities/BlockedSchedule" },
+      "description": "Staff-managed unavailable schedule blocks."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable audit log records (Admin only)."
+    },
+    "/villa_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/VillaSettings" },
+      "description": "Villa operational settings."
+    }
+  }
+}
