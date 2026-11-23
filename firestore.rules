@@ -9,7 +9,7 @@ service cloud.firestore {
 
     // Pillar 3 & Global Helpers
     function isValidId(id) {
-      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-@.]+$');
     }
 
     function incoming() {
@@ -34,16 +34,12 @@ service cloud.firestore {
       return request.auth.token.email.lower();
     }
 
-    function emailKey() {
-      return userEmailLower().replace('[^a-z0-9]', '_');
-    }
-
     function isSuperAdmin() {
       return isVerifiedUser() && userEmailLower() == 'rnimsara54@gmail.com';
     }
 
     function staffDocPath() {
-      return /databases/$(database)/documents/staff/$(emailKey());
+      return /databases/$(database)/documents/staff/$(userEmailLower());
     }
 
     function isActiveStaff() {

@@ -25,7 +25,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function toEmailKey(email: string): string {
-  return email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return email.trim().toLowerCase();
 }
 
 export const authRateLimiter = rateLimit({
