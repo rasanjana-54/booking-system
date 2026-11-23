@@ -125,6 +125,24 @@ export function getColomboPeriodRange(
 }
 
 /**
+ * Returns the current 15th-to-14th shoot accounting period in Asia/Colombo.
+ */
+export function getColomboShootPeriodRange(dateStr: string = getColomboDateStr()): {
+  start: string;
+  end: string;
+} {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const startMonthOffset = day >= 15 ? 0 : -1;
+  const endMonthOffset = day >= 15 ? 1 : 0;
+  const start = new Date(Date.UTC(year, month - 1 + startMonthOffset, 15, 12));
+  const end = new Date(Date.UTC(year, month - 1 + endMonthOffset, 14, 12));
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+/**
  * Formats currency with tabular-friendly alignment.
  */
 export function formatCurrency(amount: number, currency: CurrencyCode = 'LKR'): string {

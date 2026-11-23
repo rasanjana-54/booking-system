@@ -14,6 +14,7 @@ import {
   formatCurrency,
   getColomboDateStr,
   getColomboPeriodRange,
+  getColomboShootPeriodRange,
   timestampToMs,
 } from '../utils/colomboTime';
 import { StatusBadge } from '../components/StatusBadge';
@@ -50,6 +51,10 @@ export const DashboardPage: React.FC = () => {
     if (preset === 'custom') return { start: customStart, end: customEnd };
     return getColomboPeriodRange(preset);
   }, [preset, customStart, customEnd]);
+  const shootDateBounds = useMemo(
+    () => (preset === 'month' ? getColomboShootPeriodRange() : dateBounds),
+    [preset, dateBounds]
+  );
 
   const inRange = (dateStr: string) => {
     if (!dateBounds) return true;
@@ -61,8 +66,13 @@ export const DashboardPage: React.FC = () => {
     [activeEvents, dateBounds]
   );
   const filteredShoots = useMemo(
-    () => activeShoots.filter((s) => inRange(s.shootDate)),
-    [activeShoots, dateBounds]
+    () =>
+      activeShoots.filter(
+        (s) =>
+          !shootDateBounds ||
+          (s.shootDate >= shootDateBounds.start && s.shootDate <= shootDateBounds.end)
+      ),
+    [activeShoots, shootDateBounds]
   );
   const filteredRooms = useMemo(
     () =>
@@ -301,7 +311,11 @@ export const DashboardPage: React.FC = () => {
           <p className="text-2xl font-semibold text-[#1C2420] font-mono tabular-nums mt-2">
             {metrics.totalShoots}
           </p>
-          <p className="text-xs text-[#6E6C63] mt-1">In selected period</p>
+          <p className="text-xs text-[#6E6C63] mt-1">
+            {preset === 'month' && shootDateBounds
+              ? `${formatColomboDate(shootDateBounds.start)} – ${formatColomboDate(shootDateBounds.end)}`
+              : 'In selected period'}
+          </p>
         </div>
 
         <div className="bg-white border border-[#E2DFD5] rounded-xl p-5">
@@ -334,7 +348,9 @@ export const DashboardPage: React.FC = () => {
             {formatCurrency(metrics.totalRevenue, currency)}
           </p>
           <p className="text-xs text-[#6E6C63] mt-1">
-            Gross confirmed &amp; pending revenue in selected filter
+            {preset === 'month'
+              ? 'Shoot revenue uses the 15th–14th cycle; other categories use the selected period.'
+              : 'Gross confirmed &amp; pending revenue in selected filter'}
           </p>
         </div>
 
