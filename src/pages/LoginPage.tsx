@@ -1,9 +1,16 @@
-import React from 'react';
-import { Lock, LogOut, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const { firebaseUser, signingIn, accessError, signInWithGoogle, logout } = useAuth();
+  const { firebaseUser, signingIn, accessError, signInWithEmail, logout } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void signInWithEmail(email, password);
+  };
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#F7F6F2]">
@@ -59,8 +66,8 @@ export const LoginPage: React.FC = () => {
             Sign in to Operations
           </h2>
           <p className="text-sm text-[#6E6C63] mt-1.5 leading-relaxed">
-            Public registration is disabled. Sign in with one of the 4 staff Google accounts
-            authorized by the villa administrator.
+            Public registration is disabled. Sign in with the email and password for one of the
+            four staff accounts authorized by the villa administrator.
           </p>
 
           {accessError && (
@@ -80,15 +87,6 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => signInWithGoogle()}
-                  disabled={signingIn}
-                  className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 text-sm font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{signingIn ? 'Verifying...' : 'Switch Google Account'}</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => logout('manual')}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-[#3D3F3A] bg-[#F7F6F2] hover:bg-[#EFEDE6] border border-[#E2DFD5] rounded-lg transition-colors"
                 >
@@ -97,20 +95,43 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={signInWithGoogle}
-                disabled={signingIn}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors disabled:opacity-50"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81"
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div>
+                  <label htmlFor="staff-email" className="block text-xs font-medium text-[#3D3F3A] mb-1">
+                    Email address
+                  </label>
+                  <input
+                    id="staff-email"
+                    type="email"
+                    autoComplete="username"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2.5 text-sm"
                   />
-                </svg>
-                <span>{signingIn ? 'Authenticating...' : 'Continue with Google'}</span>
-              </button>
+                </div>
+                <div>
+                  <label htmlFor="staff-password" className="block text-xs font-medium text-[#3D3F3A] mb-1">
+                    Password
+                  </label>
+                  <input
+                    id="staff-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2.5 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={signingIn}
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <span>{signingIn ? 'Authenticating...' : 'Sign In'}</span>
+                </button>
+              </form>
             )}
           </div>
 

@@ -1,11 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithEmailAndPassword,
   signOut,
   User,
 } from 'firebase/auth';
-import { auth, googleAuthProvider } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { StaffMember } from '../types/villa';
 import {
   ActorContext,
@@ -21,7 +21,7 @@ interface AuthContextValue {
   signingIn: boolean;
   accessError: string | null;
   inactivityWarningSeconds: number | null;
-  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   logout: (reason?: 'manual' | 'timeout') => Promise<void>;
   extendSession: () => void;
   setTimeoutMinutes: (mins: number) => void;
@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const email = user.email?.trim().toLowerCase() || '';
       if (!email || !user.emailVerified) {
         setCurrentStaff(null);
-        setAccessError('A verified Google account is required to access this portal.');
+        setAccessError('A verified email account is required to access this portal.');
         setAuthReady(true);
         return;
       }
@@ -161,16 +161,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setInactivityWarningSeconds(null);
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
     setSigningIn(true);
     setAccessError(null);
     try {
-      await signInWithPopup(auth, googleAuthProvider);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Sign-in failed.';
-      if (!msg.includes('popup-closed-by-user')) {
-        setAccessError(msg);
-      }
+      setAccessError(msg);
     } finally {
       setSigningIn(false);
     }
@@ -185,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signingIn,
         accessError,
         inactivityWarningSeconds,
-        signInWithGoogle,
+        signInWithEmail,
         logout,
         extendSession,
         setTimeoutMinutes,
