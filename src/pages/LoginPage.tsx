@@ -116,7 +116,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                disabled={signingIn}
+                disabled={!authReady || signingIn}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors disabled:opacity-50"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -125,7 +125,13 @@ export const LoginPage: React.FC = () => {
                     d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81"
                   />
                 </svg>
-                <span>{signingIn ? 'Authenticating...' : 'Continue with Google'}</span>
+                <span>
+                  {!authReady
+                    ? 'Checking session...'
+                    : signingIn
+                    ? 'Authenticating...'
+                    : 'Continue with Google'}
+                </span>
               </button>
             )}
           </div>

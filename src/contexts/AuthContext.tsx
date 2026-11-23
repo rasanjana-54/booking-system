@@ -1,8 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
-  getRedirectResult,
   onAuthStateChanged,
-  signInWithRedirect,
+  signInWithPopup,
   signOut,
   User,
 } from 'firebase/auth';
@@ -54,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [firebaseUser, setFirebaseUser] = useState<User | null>(MOCK_FIREBASE_USER);
   const [firebaseAuthenticated, setFirebaseAuthenticated] = useState(false);
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(DEFAULT_STAFF);
-  const [authReady, setAuthReady] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(30);
@@ -90,45 +89,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(
     async (reason: 'manual' | 'timeout' = 'manual') => {
       try {
-        if (firebaseUser && currentStaff && currentStaff.isActive) {
+        if (firebaseAuthenticated && firebaseUser && currentStaff && currentStaff.isActive) {
           await logStaffLogout(reason, timeoutMinutes);
         }
-      } catch {
-        // Proceed with sign-out even if audit log fails
-      } finally {
-        loggedLoginUidRef.current = null;
-        setInactivityWarningSeconds(null);
-        setFirebaseAuthenticated(false);
-        setCurrentStaff(DEFAULT_STAFF);
-        try {
-          await signOut(auth);
-        } catch {
-          // ignore signout errors
-        }
+      } catch (error) {
+        console.error('Failed to write staff logout audit log:', error);
       }
+
+      await signOut(auth);
+      loggedLoginUidRef.current = null;
+      setInactivityWarningSeconds(null);
+      setFirebaseAuthenticated(false);
+      setFirebaseUser(MOCK_FIREBASE_USER);
+      setCurrentStaff(DEFAULT_STAFF);
     },
-    [firebaseUser, currentStaff, timeoutMinutes]
+    [firebaseAuthenticated, firebaseUser, currentStaff, timeoutMinutes]
   );
-
-  useEffect(() => {
-    let active = true;
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) setAccessError(null);
-      })
-      .catch((error) => {
-        if (active) {
-          setAccessError(error instanceof Error ? error.message : 'Sign-in failed.');
-        }
-      })
-      .finally(() => {
-        if (active) setSigningIn(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -186,7 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const warningThresholdMs = limitMs - 120 * 1000;
 
       if (idleMs >= limitMs) {
-        logout('timeout');
+        void logout('timeout').catch((error) => {
+          console.error('Automatic sign-out failed:', error);
+        });
       } else if (idleMs >= warningThresholdMs) {
         const remaining = Math.max(1, Math.ceil((limitMs - idleMs) / 1000));
         setInactivityWarningSeconds(remaining);
@@ -210,10 +188,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSigningIn(true);
     setAccessError(null);
     try {
-      await signInWithRedirect(auth, googleAuthProvider);
+      await signInWithPopup(auth, googleAuthProvider);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Sign-in failed.';
-      setAccessError(msg);
+      if (!msg.includes('popup-closed-by-user')) {
+        setAccessError(msg);
+      }
+    } finally {
       setSigningIn(false);
     }
   }, []);

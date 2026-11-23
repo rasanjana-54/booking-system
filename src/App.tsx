@@ -20,6 +20,20 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 const RequireStaff: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { authReady, firebaseAuthenticated } = useAuth();
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F6F2] text-sm text-[#6E6C63]">
+        Checking your sign-in...
+      </div>
+    );
+  }
+
+  if (!firebaseAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -28,11 +42,11 @@ const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const OperationsLayout: React.FC = () => (
-  <VillaDataProvider>
-    <RequireStaff>
+  <RequireStaff>
+    <VillaDataProvider>
       <AppShell />
-    </RequireStaff>
-  </VillaDataProvider>
+    </VillaDataProvider>
+  </RequireStaff>
 );
 
 export default function App() {

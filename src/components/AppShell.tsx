@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { getColomboDateStr, getColomboTimeStr } from '../utils/colomboTime';
 
@@ -37,9 +38,22 @@ const PAGE_TITLES: Record<string, string> = {
 
 export const AppShell: React.FC = () => {
   const { currentStaff, logout, inactivityWarningSeconds, extendSession } = useAuth();
+  const { notify } = useToast();
   const { settings, dataError } = useVillaData();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+
+  const handleLogout = async (reason: 'manual' | 'timeout' = 'manual') => {
+    try {
+      await logout(reason);
+    } catch (error) {
+      notify(
+        'Logout failed',
+        'error',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    }
+  };
 
   const isAdmin = currentStaff?.role === 'ADMIN';
   const villaName = settings?.villaName || 'Urban Escape Villa';
@@ -106,7 +120,7 @@ export const AppShell: React.FC = () => {
         )}
         <button
           type="button"
-          onClick={() => logout('manual')}
+          onClick={() => void handleLogout('manual')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
         >
           <LogOut className="w-4 h-4 shrink-0" />
@@ -207,7 +221,7 @@ export const AppShell: React.FC = () => {
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => logout('manual')}
+                onClick={() => void handleLogout('manual')}
                 className="px-3.5 py-2 text-xs font-medium text-[#3D3F3A] bg-[#F7F6F2] border border-[#E2DFD5] rounded-lg"
               >
                 Logout Now
