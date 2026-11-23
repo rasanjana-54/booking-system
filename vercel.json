@@ -1,0 +1,52 @@
+{
+  "rewrites": [
+    {
+      "source": "/login",
+      "destination": "/"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/"
+    },
+    {
+      "source": "/bookings",
+      "destination": "/"
+    },
+    {
+      "source": "/events",
+      "destination": "/"
+    },
+    {
+      "source": "/shoots",
+      "destination": "/"
+    },
+    {
+      "source": "/rooms",
+      "destination": "/"
+    },
+    {
+      "source": "/payments",
+      "destination": "/"
+    },
+    {
+      "source": "/calendar",
+      "destination": "/"
+    },
+    {
+      "source": "/archived",
+      "destination": "/"
+    },
+    {
+      "source": "/staff",
+      "destination": "/"
+    },
+    {
+      "source": "/audit-logs",
+      "destination": "/"
+    },
+    {
+      "source": "/settings",
+      "destination": "/"
+    }
+  ]
+}
