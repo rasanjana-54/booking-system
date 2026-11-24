@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Lock, LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import villaImage from '../assets/images/login_villa.png';
+import villaLogo from '../assets/images/urban_escape_villa_logo.png';
 
 export const LoginPage: React.FC = () => {
   const {
@@ -26,9 +28,8 @@ export const LoginPage: React.FC = () => {
       {/* Left Architectural Editorial Column */}
       <div className="relative lg:col-span-7 min-h-[260px] lg:min-h-screen overflow-hidden bg-[#0E241B]">
         <img
-          src="/src/assets/images/villa_hero_courtyard_1795247324664.jpg"
-          alt="Urban Escape Villa courtyard and infinity pool"
-          referrerPolicy="no-referrer"
+          src={villaImage}
+          alt="Urban Escape Villa courtyard"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0E241B]/90 via-[#0E241B]/45 to-[#0E241B]/30" />
@@ -37,12 +38,11 @@ export const LoginPage: React.FC = () => {
             <p className="text-xs tracking-wider text-white/80 font-medium">
               Internal Estate Operations
             </p>
-            <h1
-              className="text-3xl sm:text-5xl font-semibold tracking-tight mt-2 text-balance max-w-xl"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              Urban Escape Villa
-            </h1>
+            <img
+              src={villaLogo}
+              alt="Urban Escape Villa"
+              className="mt-3 h-24 w-24 rounded-lg bg-white p-1 object-contain shadow-sm"
+            />
           </div>
 
           <div className="max-w-lg hidden sm:block">
@@ -53,7 +53,7 @@ export const LoginPage: React.FC = () => {
             <div className="flex items-center gap-3 text-xs text-white/70 mt-4 font-mono">
               <span>Asia/Colombo (UTC+05:30)</span>
               <span aria-hidden="true">·</span>
-              <span>Max 4 Staff Accounts</span>
+              <span>Max 6 Staff Accounts</span>
               <span aria-hidden="true">·</span>
               <span>Audited Access</span>
             </div>
