@@ -1,13 +1,14 @@
 import React from 'react';
 import { LockKeyhole } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import courtyardImage from '../assets/images/villa_hero_courtyard_1795247324664.jpg';
+import villaImage from '../assets/images/urban_escape_villa.png';
+import villaLogo from '../assets/images/urban_escape_villa_logo.png';
 
 export const LandingPage: React.FC = () => (
   <main className="relative h-screen min-h-[620px] overflow-hidden bg-[#0E241B] text-white">
     <img
-      src={courtyardImage}
-      alt="Urban Escape Villa surrounded by tropical greenery"
+      src={villaImage}
+      alt="Urban Escape Villa"
       className="absolute inset-0 h-full w-full object-cover"
     />
     <div className="absolute inset-0 bg-gradient-to-r from-[#07130F]/80 via-[#07130F]/38 to-transparent" />
@@ -18,12 +19,12 @@ export const LandingPage: React.FC = () => (
         aria-label="Main navigation"
         className="flex items-center justify-between px-3 py-3 sm:px-5 sm:py-5"
       >
-        <a
-          href="#"
-          className="text-xl font-semibold tracking-[-0.02em] sm:text-2xl"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          Urban Escape Villa
+        <a href="/" aria-label="Urban Escape Villa home">
+          <img
+            src={villaLogo}
+            alt="Urban Escape Villa"
+            className="h-20 w-auto rounded-lg bg-white/95 p-1 shadow-sm sm:h-24"
+          />
         </a>
         <Link
           to="/login"
