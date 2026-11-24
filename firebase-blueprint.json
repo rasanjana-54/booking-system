@@ -2,7 +2,7 @@
   "entities": {
     "StaffMember": {
       "title": "StaffMember",
-      "description": "Authorized villa management staff account (maximum 4 accounts).",
+      "description": "Authorized villa management staff account (maximum 6 accounts).",
       "type": "object",
       "properties": {
         "email": {
@@ -23,7 +23,9 @@
         },
         "slotNumber": {
           "type": "integer",
-          "description": "Fixed authorized slot from 1 to 4"
+          "minimum": 1,
+          "maximum": 6,
+          "description": "Fixed authorized slot from 1 to 6"
         },
         "phone": {
           "type": "string",
@@ -757,7 +759,7 @@
   "firestore": {
     "/staff/{staffId}": {
       "schema": { "$ref": "#/entities/StaffMember" },
-      "description": "Authorized staff directory (max 4 staff slots)."
+      "description": "Authorized staff directory (max 6 staff slots)."
     },
     "/events/{eventId}": {
       "schema": { "$ref": "#/entities/EventBooking" },

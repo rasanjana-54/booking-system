@@ -6,7 +6,11 @@ import { z } from 'zod';
 import { useAuth } from '../contexts/AuthContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
-import { StaffMember } from '../types/villa';
+import {
+  MAX_STAFF_ACCOUNTS,
+  STAFF_SLOT_NUMBERS,
+  type StaffMember,
+} from '../types/villa';
 import { staffSchema } from '../utils/validation';
 import { formatColomboTimestamp } from '../utils/colomboTime';
 import {
@@ -147,7 +151,7 @@ export const StaffManagementPage: React.FC = () => {
     }
   };
 
-  const slotsRemaining = Math.max(0, 4 - staffMembers.length);
+  const slotsRemaining = Math.max(0, MAX_STAFF_ACCOUNTS - staffMembers.length);
 
   return (
     <div className="space-y-6">
@@ -160,7 +164,8 @@ export const StaffManagementPage: React.FC = () => {
             Authorized Staff Management
           </h2>
           <p className="text-sm text-[#6E6C63] mt-0.5">
-            Strictly capped at 4 authorized staff accounts ({staffMembers.length}/4 slots assigned).
+            Strictly capped at {MAX_STAFF_ACCOUNTS} authorized staff accounts (
+            {staffMembers.length}/{MAX_STAFF_ACCOUNTS} slots assigned).
           </p>
         </div>
 
@@ -174,14 +179,14 @@ export const StaffManagementPage: React.FC = () => {
           <span>
             {slotsRemaining > 0
               ? `Provision Staff (${slotsRemaining} left)`
-              : 'All 4 Slots Assigned'}
+              : 'All 6 Slots Assigned'}
           </span>
         </button>
       </div>
 
-      {/* 4-Slot Visual Grid */}
+      {/* Staff slot grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {([1, 2, 3, 4] as const).map((slotNum) => {
+        {STAFF_SLOT_NUMBERS.map((slotNum) => {
           const member = staffMembers.find((m) => m.slotNumber === slotNum);
           if (!member) {
             return (
@@ -190,7 +195,9 @@ export const StaffManagementPage: React.FC = () => {
                 className="border border-dashed border-[#CDC9BC] rounded-xl p-6 bg-[#F7F6F2]/60 flex items-center justify-between"
               >
                 <div>
-                  <p className="text-xs font-mono text-[#6E6C63]">Slot {slotNum} / 4</p>
+                  <p className="text-xs font-mono text-[#6E6C63]">
+                    Slot {slotNum} / {MAX_STAFF_ACCOUNTS}
+                  </p>
                   <p className="text-sm font-medium text-[#3D3F3A] mt-1">
                     Unassigned Staff Seat
                   </p>
@@ -219,7 +226,7 @@ export const StaffManagementPage: React.FC = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 text-xs text-[#6E6C63] font-mono">
-                    <span>Slot {member.slotNumber} / 4</span>
+                    <span>Slot {member.slotNumber} / {MAX_STAFF_ACCOUNTS}</span>
                     <span aria-hidden="true">·</span>
                     <span className="inline-flex items-center gap-1 font-semibold text-[#183D2D]">
                       <Shield className="w-3 h-3" /> {member.role}

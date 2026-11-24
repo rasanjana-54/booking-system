@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { getColomboDateStr, getColomboTimeStr } from '../utils/colomboTime';
+import { MAX_STAFF_ACCOUNTS } from '../types/villa';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -126,7 +127,7 @@ export const AppShell: React.FC = () => {
           <div className="px-3 py-2 rounded-lg bg-white/5">
             <p className="text-xs font-medium text-white truncate">{currentStaff.name}</p>
             <p className="text-[11px] text-white/65 truncate">
-              {currentStaff.role} · Slot {currentStaff.slotNumber}/4
+              {currentStaff.role} · Slot {currentStaff.slotNumber}/{MAX_STAFF_ACCOUNTS}
             </p>
           </div>
         )}

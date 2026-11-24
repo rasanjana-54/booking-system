@@ -50,6 +50,8 @@ import type {
   VillaSettings,
   WhatsAppReminder,
 } from '../../types/villa.ts';
+import { MAX_STAFF_ACCOUNTS } from '../../types/villa.ts';
+import { getNextStaffSlot } from '../../utils/staffSlots.ts';
 import {
   applyWhatsAppWebhookStatus,
   FirestoreReminderStore,
@@ -2062,8 +2064,8 @@ apiRouter.post('/staff', requireAdminRole, async (req: AuthenticatedRequest, res
       callerEmail
     );
 
-    if (existingStaff.length >= 4) {
-      res.status(400).json({ error: 'Maximum limit of 4 authorized staff accounts reached.' });
+    if (existingStaff.length >= MAX_STAFF_ACCOUNTS) {
+      res.status(400).json({ error: `Maximum limit of ${MAX_STAFF_ACCOUNTS} authorized staff accounts reached.` });
       return;
     }
 
@@ -2075,9 +2077,9 @@ apiRouter.post('/staff', requireAdminRole, async (req: AuthenticatedRequest, res
     }
 
     const usedSlots = new Set(existingStaff.map((s) => s.slotNumber));
-    const nextSlot = ([1, 2, 3, 4] as const).find((n) => !usedSlots.has(n));
+    const nextSlot = getNextStaffSlot(usedSlots);
     if (!nextSlot) {
-      res.status(400).json({ error: 'All 4 staff slots are currently occupied.' });
+      res.status(400).json({ error: `All ${MAX_STAFF_ACCOUNTS} staff slots are currently occupied.` });
       return;
     }
 

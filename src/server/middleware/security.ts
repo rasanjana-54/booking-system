@@ -153,7 +153,7 @@ export async function requireStaffAuth(
         return;
       }
       res.status(403).json({
-        error: `Access Denied: ${email} is not one of the 4 authorized villa staff accounts.`,
+        error: `Access Denied: ${email} is not one of the 6 authorized villa staff accounts.`,
       });
       return;
     }

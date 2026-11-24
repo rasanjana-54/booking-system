@@ -94,7 +94,7 @@ service cloud.firestore {
         && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
         && data.role in ['ADMIN', 'STAFF']
-        && data.slotNumber is int && data.slotNumber >= 1 && data.slotNumber <= 4
+        && data.slotNumber is int && data.slotNumber >= 1 && data.slotNumber <= 6
         && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
         && (!('whatsappPhone' in data) || (data.whatsappPhone is string && (
           data.whatsappPhone == '' || data.whatsappPhone.matches('^\\+[1-9][0-9]{7,14}$')
@@ -102,7 +102,7 @@ service cloud.firestore {
         && data.isActive is bool
         && (!('uid' in data) || (data.uid is string && data.uid.size() <= 128))
         && (!('lastLoginAt' in data) || data.lastLoginAt is timestamp)
-        && isValidEmailList(data.adminEmails, 4)
+        && isValidEmailList(data.adminEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
@@ -140,7 +140,7 @@ service cloud.firestore {
         && data.isArchived is bool
         && (!('archivedAt' in data) || data.archivedAt is timestamp || data.archivedAt == null)
         && (!('archivedBy' in data) || data.archivedBy == null || (data.archivedBy is string && data.archivedBy.size() <= 128))
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdByName is string && data.createdByName.size() <= 100
         && data.createdAt is timestamp
@@ -185,7 +185,7 @@ service cloud.firestore {
         && data.isArchived is bool
         && (!('archivedAt' in data) || data.archivedAt is timestamp || data.archivedAt == null)
         && (!('archivedBy' in data) || data.archivedBy == null || (data.archivedBy is string && data.archivedBy.size() <= 128))
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdByName is string && data.createdByName.size() <= 100
         && data.createdAt is timestamp
@@ -209,7 +209,7 @@ service cloud.firestore {
         && data.status in ['Available', 'Maintenance', 'Inactive']
         && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 500))
         && data.isArchived is bool
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
@@ -248,7 +248,7 @@ service cloud.firestore {
         && data.isArchived is bool
         && (!('archivedAt' in data) || data.archivedAt is timestamp || data.archivedAt == null)
         && (!('archivedBy' in data) || data.archivedBy == null || (data.archivedBy is string && data.archivedBy.size() <= 128))
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdByName is string && data.createdByName.size() <= 100
         && data.createdAt is timestamp
@@ -282,7 +282,7 @@ service cloud.firestore {
         && data.isVoided is bool
         && data.recordedBy is string && data.recordedBy.size() <= 128
         && data.recordedByName is string && data.recordedByName.size() <= 100
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdAt is timestamp;
     }
 
@@ -303,7 +303,7 @@ service cloud.firestore {
         && isValidTimeStr(data.startTime)
         && isValidTimeStr(data.endTime)
         && data.reason is string && data.reason.size() >= 2 && data.reason.size() <= 300
-        && isValidEmailList(data.authorizedEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
         && data.createdBy is string && data.createdBy.size() <= 128
         && data.createdByName is string && data.createdByName.size() <= 100
         && data.createdAt is timestamp;
@@ -325,7 +325,7 @@ service cloud.firestore {
         && data.recordType is string && data.recordType.size() <= 40
         && data.recordId is string && data.recordId.size() <= 128
         && data.summary is string && data.summary.size() <= 500
-        && isValidEmailList(data.adminEmails, 4)
+        && isValidEmailList(data.adminEmails, 6)
         && data.timestamp is timestamp;
     }
 
@@ -342,13 +342,13 @@ service cloud.firestore {
         && data.timezone is string && data.timezone.size() <= 40
         && data.currency in ['LKR', 'USD']
         && data.inactivityTimeoutMinutes is int && data.inactivityTimeoutMinutes >= 5 && data.inactivityTimeoutMinutes <= 240
-        && isValidEmailList(data.authorizedEmails, 4)
-        && isValidEmailList(data.adminEmails, 4)
+        && isValidEmailList(data.authorizedEmails, 6)
+        && isValidEmailList(data.adminEmails, 6)
         && data.updatedBy is string && data.updatedBy.size() <= 128
         && data.updatedAt is timestamp;
     }
 
-    // Collection: staff (max 4 authorized staff slots)
+    // Collection: staff (max 6 authorized staff slots)
     match /staff/{staffId} {
       allow get: if isValidId(staffId) && (
         isAdmin() || (isVerifiedUser() && existing().email == userEmailLower())

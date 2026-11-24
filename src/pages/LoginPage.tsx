@@ -75,7 +75,7 @@ export const LoginPage: React.FC = () => {
             Sign in to Operations
           </h2>
           <p className="text-sm text-[#6E6C63] mt-1.5 leading-relaxed">
-            Public registration is disabled. Sign in with one of the 4 staff Google accounts
+            Public registration is disabled. Sign in with one of the 6 staff Google accounts
             authorized by the villa administrator.
           </p>
 

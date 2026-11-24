@@ -3,6 +3,9 @@ import type { Timestamp } from 'firebase/firestore';
 export type FirestoreTimestampLike = Timestamp | string | null | undefined;
 
 export type StaffRole = 'ADMIN' | 'STAFF';
+export const STAFF_SLOT_NUMBERS = [1, 2, 3, 4, 5, 6] as const;
+export type StaffSlotNumber = (typeof STAFF_SLOT_NUMBERS)[number];
+export const MAX_STAFF_ACCOUNTS = STAFF_SLOT_NUMBERS.length;
 export type CurrencyCode = 'LKR' | 'USD';
 
 export type BookingCategory = 'EVENT' | 'SHOOT' | 'ROOM';
@@ -55,7 +58,7 @@ export interface StaffMember {
   email: string;
   name: string;
   role: StaffRole;
-  slotNumber: 1 | 2 | 3 | 4;
+  slotNumber: StaffSlotNumber;
   phone?: string;
   whatsappPhone?: string;
   isActive: boolean;

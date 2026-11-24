@@ -1,6 +1,6 @@
 # Urban Escape Villa — Private Villa Management System
 
-A private internal operations portal built for **up to 4 authorized villa management staff accounts** (`ADMIN` and `STAFF` roles). Public registration and public customer access are strictly disabled.
+A private internal operations portal built for **up to 6 authorized villa management staff accounts** (`ADMIN` and `STAFF` roles). Public registration and public customer access are strictly disabled.
 
 ## Architecture Overview
 
@@ -11,7 +11,7 @@ A private internal operations portal built for **up to 4 authorized villa manage
 
 ## Data Model & Relationships
 
-1. **`staff/{staffId}`**: Stores up to 4 authorized staff slots (`slotNumber` 1–4), email allowlist, role (`ADMIN` | `STAFF`), active flag, and last login timestamp.
+1. **`staff/{staffId}`**: Stores up to 6 authorized staff slots (`slotNumber` 1–6), email allowlist, role (`ADMIN` | `STAFF`), active flag, and last login timestamp.
 2. **`events/{eventId}`**: Event bookings (`EVT-YYYY-NNNN`) with venue resource (`Full Estate`, `Main Lawn & Poolside`, `Indoor Courtyard`, `Garden Pavilion`), date, time window, guest count, payment summary, and archival flags.
 3. **`shoots/{shootId}`**: Photoshoot & video shoot bookings (`SHT-YYYY-NNNN`) sharing venue conflict checks with events and blocked schedules.
 4. **`room_types/{roomTypeId}`**: Suite inventory (code, name, description, capacity, nightly rate, status, photography).
@@ -24,7 +24,7 @@ A private internal operations portal built for **up to 4 authorized villa manage
 
 ## Security Safeguards
 
-- **4-Account Private Allowlist**: Bootstrapped administrator (`rnimsara54@gmail.com`) provisions up to 3 additional staff Google accounts in Staff Management. Unauthorized or deactivated Google accounts are denied across React routes, Express API middleware, and Firestore Security Rules.
+- **6-Account Private Allowlist**: Bootstrapped administrator (`rnimsara54@gmail.com`) provisions up to 5 additional staff Google accounts in Staff Management. Unauthorized or deactivated Google accounts are denied across React routes, Express API middleware, and Firestore Security Rules.
 - **Role-Based Access Control (RBAC)**: Only `ADMIN` accounts can manage staff, view audit logs, restore or permanently delete archived records, void/adjust payments, export backups, and update villa settings.
 - **Express API Security**: Helmet headers, rate limiting on auth and API endpoints, CSRF validation on state-changing requests, Zod input validation, and server-side schedule conflict enforcement.
 - **Inactivity Session Expiration**: Tracks user activity and automatically signs out after the configured idle timeout (default 30 minutes) with a 2-minute warning prompt.
