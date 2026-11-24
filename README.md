@@ -4,8 +4,8 @@ A private internal operations portal built for **up to 6 authorized villa manage
 
 ## Architecture Overview
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS v4, React Router, Axios, React Hook Form, Zod validation, Lucide Icons.
-- **Backend**: Node.js + Express.js (`server.ts`, `src/server/routes/api.ts`), TypeScript REST API, Helmet security headers, `express-rate-limit`, CSRF origin/header verification, and server-side Firebase ID token verification.
+- **Frontend**: React 19 with JavaScript, Tailwind CSS v4, React Router, Axios, React Hook Form, Zod validation, Lucide Icons.
+- **Backend**: Node.js + Express.js (`server.js`, `src/server/routes/api.js`), JavaScript REST API, Helmet security headers, `express-rate-limit`, CSRF origin/header verification, and server-side Firebase ID token verification.
 - **Database & Auth**: Firebase Authentication (Google Sign-In) + Cloud Firestore with hardened zero-trust security rules (`firestore.rules`) and schema blueprint (`firebase-blueprint.json`).
 - **Timezone Standard**: All date filtering, availability checks, and timestamps strictly evaluate in `Asia/Colombo` (`UTC+05:30`).
 
@@ -36,7 +36,7 @@ A private internal operations portal built for **up to 6 authorized villa manage
    ```bash
    npm install
    ```
-2. **Lint security rules & TypeScript**:
+2. **Lint security rules & JavaScript**:
    ```bash
    npx eslint firestore.rules
    npm run lint

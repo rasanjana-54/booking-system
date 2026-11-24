@@ -4,20 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "start": "node server.ts",
-    "test": "tsx --test src/server/whatsappReminders.test.ts src/utils/staffSlots.test.ts src/lib/apiError.test.ts",
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test src/server/whatsappReminders.test.js src/utils/staffSlots.test.js src/lib/apiError.test.js",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "eslint . --ext .js,.jsx"
   },
   "dependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@google/genai": "^2.4.0",
     "@hookform/resolvers": "^7.0.8",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/cors": "^2.8.19",
     "@vitejs/plugin-react": "^6.1.1",
     "axios": "^1.21.1",
     "cors": "^2.8.6",
@@ -39,14 +38,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.0",
-    "tailwindcss": "^4.3.3",
-    "tsx": "^4.21.0",
-    "typescript": "^7.0.2",
-    "@types/express": "^4.17.21"
+    "tailwindcss": "^4.3.3"
   }
 }

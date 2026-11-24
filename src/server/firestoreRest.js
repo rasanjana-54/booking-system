@@ -1,0 +1,312 @@
+import { FIREBASE_PROJECT_ID, FIRESTORE_DATABASE_ID } from "./firebaseAdmin.js";
+const BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents`;
+const DOC_PATH_PREFIX = `projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents`;
+const SERVER_TIMESTAMP = { __serverTimestamp: true };
+function isServerTimestamp(val) {
+  return typeof val === "object" && val !== null && "__serverTimestamp" in val && val.__serverTimestamp === true;
+}
+function toFirestoreValue(val) {
+  if (val === null || val === void 0) {
+    return { nullValue: null };
+  }
+  if (typeof val === "string") {
+    return { stringValue: val };
+  }
+  if (typeof val === "boolean") {
+    return { booleanValue: val };
+  }
+  if (typeof val === "number") {
+    if (Number.isInteger(val)) {
+      return { integerValue: String(val) };
+    }
+    return { doubleValue: val };
+  }
+  if (Array.isArray(val)) {
+    return {
+      arrayValue: {
+        values: val.map((item) => toFirestoreValue(item))
+      }
+    };
+  }
+  if (typeof val === "object") {
+    const fields = {};
+    for (const [k, v] of Object.entries(val)) {
+      if (v !== void 0 && !isServerTimestamp(v)) {
+        fields[k] = toFirestoreValue(v);
+      }
+    }
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(val) };
+}
+function fromFirestoreValue(val) {
+  if ("stringValue" in val) return val.stringValue;
+  if ("integerValue" in val) return Number(val.integerValue);
+  if ("doubleValue" in val) return Number(val.doubleValue);
+  if ("booleanValue" in val) return val.booleanValue;
+  if ("nullValue" in val) return null;
+  if ("timestampValue" in val) return val.timestampValue;
+  if ("arrayValue" in val) {
+    return (val.arrayValue.values || []).map((v) => fromFirestoreValue(v));
+  }
+  if ("mapValue" in val) {
+    const obj = {};
+    for (const [k, v] of Object.entries(val.mapValue.fields || {})) {
+      obj[k] = fromFirestoreValue(v);
+    }
+    return obj;
+  }
+  return null;
+}
+function decodeDoc(raw) {
+  const parts = raw.name.split("/");
+  const id = parts[parts.length - 1];
+  const obj = { id };
+  for (const [k, v] of Object.entries(raw.fields || {})) {
+    obj[k] = fromFirestoreValue(v);
+  }
+  return obj;
+}
+function splitPayloadAndTransforms(data) {
+  const fields = {};
+  const fieldTransforms = [];
+  for (const [k, v] of Object.entries(data)) {
+    if (v === void 0) continue;
+    if (isServerTimestamp(v)) {
+      fieldTransforms.push({ fieldPath: k, setToServerValue: "REQUEST_TIME" });
+    } else {
+      fields[k] = toFirestoreValue(v);
+    }
+  }
+  return { fields, fieldTransforms };
+}
+const localStore = {
+  villa_settings: /* @__PURE__ */ new Map([
+    [
+      "general",
+      {
+        id: "general",
+        villaName: "Urban Escape Villa",
+        timezone: "Asia/Colombo",
+        currency: "LKR",
+        inactivityTimeoutMinutes: 30,
+        authorizedEmails: ["rnimsara54@gmail.com"],
+        adminEmails: ["rnimsara54@gmail.com"],
+        updatedBy: "admin_local",
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    ]
+  ]),
+  staff: /* @__PURE__ */ new Map([
+    [
+      "rnimsara54@gmail.com",
+      {
+        id: "rnimsara54@gmail.com",
+        email: "rnimsara54@gmail.com",
+        name: "Villa Administrator",
+        role: "ADMIN",
+        slotNumber: 1,
+        isActive: true,
+        adminEmails: ["rnimsara54@gmail.com"],
+        createdBy: "admin_local",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    ]
+  ]),
+  room_types: /* @__PURE__ */ new Map([
+    [
+      "suite_king_room",
+      {
+        id: "suite_king_room",
+        roomCode: "RM-01",
+        name: "King Room",
+        description: "King room",
+        maxCapacity: 2,
+        price: 5e4,
+        status: "Available",
+        isArchived: false,
+        authorizedEmails: ["rnimsara54@gmail.com"],
+        createdBy: "admin_local",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    ],
+    [
+      "suite_queen_room",
+      {
+        id: "suite_queen_room",
+        roomCode: "RM-02",
+        name: "Queen Room",
+        description: "Queen room",
+        maxCapacity: 2,
+        price: 5e4,
+        status: "Available",
+        isArchived: false,
+        authorizedEmails: ["rnimsara54@gmail.com"],
+        createdBy: "admin_local",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    ]
+  ]),
+  events: /* @__PURE__ */ new Map(),
+  shoots: /* @__PURE__ */ new Map(),
+  room_bookings: /* @__PURE__ */ new Map(),
+  payments: /* @__PURE__ */ new Map(),
+  blocked_schedules: /* @__PURE__ */ new Map(),
+  audit_logs: /* @__PURE__ */ new Map()
+};
+function getLocalCollection(name) {
+  if (!localStore[name]) {
+    localStore[name] = /* @__PURE__ */ new Map();
+  }
+  return localStore[name];
+}
+async function firestoreFetch(url, idToken, init = {}) {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+      ...init.headers || {}
+    }
+  });
+  return res;
+}
+async function fsGetDoc(idToken, collectionName, docId) {
+  if (!idToken || idToken === "local-admin-token") {
+    const col = getLocalCollection(collectionName);
+    const doc = col.get(docId);
+    if (!doc) return null;
+    return { ...doc, id: docId };
+  }
+  try {
+    const res = await firestoreFetch(`${BASE_URL}/${collectionName}/${docId}`, idToken, {
+      method: "GET"
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error(`Firestore get failed (${res.status})`);
+    }
+    const raw = await res.json();
+    return decodeDoc(raw);
+  } catch {
+    const col = getLocalCollection(collectionName);
+    const doc = col.get(docId);
+    if (!doc) return null;
+    return { ...doc, id: docId };
+  }
+}
+async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
+  const queryLocal = () => {
+    const col = getLocalCollection(collectionName);
+    const result = [];
+    for (const [id, doc] of col.entries()) {
+      const arr = doc[fieldPath];
+      if (Array.isArray(arr) && arr.includes(value)) {
+        result.push({ ...doc, id });
+      } else if (!arr) {
+        result.push({ ...doc, id });
+      }
+    }
+    return result;
+  };
+  if (!idToken || idToken === "local-admin-token") {
+    return queryLocal();
+  }
+  try {
+    const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
+      method: "POST",
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: collectionName }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath },
+              op: "ARRAY_CONTAINS",
+              value: { stringValue: value }
+            }
+          }
+        }
+      })
+    });
+    if (!res.ok) {
+      throw new Error(`Firestore query failed (${res.status})`);
+    }
+    const rows = await res.json();
+    return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
+  } catch {
+    return queryLocal();
+  }
+}
+async function fsCommit(idToken, ops) {
+  if (ops.length === 0) return;
+  for (const op of ops) {
+    const col = getLocalCollection(op.collection);
+    if (op.type === "delete") {
+      col.delete(op.docId);
+      continue;
+    }
+    const current = col.get(op.docId) || { id: op.docId };
+    const rawData = op.data || {};
+    const cleanData = {};
+    for (const [k, v] of Object.entries(rawData)) {
+      if (isServerTimestamp(v)) {
+        cleanData[k] = (/* @__PURE__ */ new Date()).toISOString();
+      } else {
+        cleanData[k] = v;
+      }
+    }
+    if (op.type === "set") {
+      col.set(op.docId, { ...cleanData, id: op.docId });
+    } else {
+      col.set(op.docId, { ...current, ...cleanData, id: op.docId });
+    }
+  }
+  if (!idToken || idToken === "local-admin-token") {
+    return;
+  }
+  try {
+    const writes = [];
+    for (const op of ops) {
+      const docName = `${DOC_PATH_PREFIX}/${op.collection}/${op.docId}`;
+      if (op.type === "delete") {
+        writes.push({ delete: docName });
+        continue;
+      }
+      const data = op.data || {};
+      const { fields, fieldTransforms } = splitPayloadAndTransforms(data);
+      const writeEntry = {
+        update: {
+          name: docName,
+          fields
+        }
+      };
+      if (op.type === "update") {
+        const explicitMask = op.updateFields || Object.keys(fields);
+        writeEntry.updateMask = {
+          fieldPaths: explicitMask.filter((k) => !isServerTimestamp(data[k]))
+        };
+      }
+      if (fieldTransforms.length > 0) {
+        writeEntry.updateTransforms = fieldTransforms;
+      }
+      writes.push(writeEntry);
+    }
+    await firestoreFetch(`${BASE_URL}:commit`, idToken, {
+      method: "POST",
+      body: JSON.stringify({ writes })
+    });
+  } catch {
+  }
+}
+export {
+  SERVER_TIMESTAMP,
+  decodeDoc,
+  fromFirestoreValue,
+  fsCommit,
+  fsGetDoc,
+  fsQueryArrayContains,
+  toFirestoreValue
+};
