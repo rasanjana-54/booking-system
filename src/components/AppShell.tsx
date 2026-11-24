@@ -1,20 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Archive,
-  BedDouble,
   CalendarDays,
-  Camera,
-  ClipboardList,
-  CreditCard,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
-  PartyPopper,
   Settings,
   ShieldAlert,
-  Users,
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,17 +17,28 @@ import { getColomboDateStr, getColomboTimeStr } from '../utils/colomboTime';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
-  '/bookings': 'All Bookings',
+  '/bookings': 'Bookings',
   '/events': 'Events',
   '/shoots': 'Photoshoots',
   '/rooms': 'Rooms & Suites',
-  '/payments': 'Payments',
-  '/calendar': 'Calendar',
+  '/calendar': 'Booking Calendar',
   '/archived': 'Archived Records',
   '/staff': 'Staff Management',
   '/audit-logs': 'Audit Logs',
+  '/whatsapp-reminders': 'WhatsApp Reminders',
   '/settings': 'Settings',
 };
+
+const BOOKING_PATHS = ['/bookings', '/events', '/shoots', '/rooms', '/archived'];
+const SETTINGS_PATHS = ['/settings', '/staff', '/audit-logs', '/whatsapp-reminders'];
+
+const BOOKING_SECTION_ITEMS = [
+  { to: '/bookings', label: 'All Bookings' },
+  { to: '/events', label: 'Events' },
+  { to: '/shoots', label: 'Photoshoots' },
+  { to: '/rooms', label: 'Rooms' },
+  { to: '/archived', label: 'Archived' },
+];
 
 export const AppShell: React.FC = () => {
   const { currentStaff, logout, inactivityWarningSeconds, extendSession } = useAuth();
@@ -58,26 +62,32 @@ export const AppShell: React.FC = () => {
   const isAdmin = currentStaff?.role === 'ADMIN';
   const villaName = settings?.villaName || 'Urban Escape Villa';
   const pageTitle = PAGE_TITLES[location.pathname] || 'Operations';
+  const inBookingSection = BOOKING_PATHS.includes(location.pathname);
+  const inSettingsSection = SETTINGS_PATHS.includes(location.pathname);
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { to: '/bookings', label: 'All Bookings', icon: ListChecks, adminOnly: false },
-    { to: '/events', label: 'Events', icon: PartyPopper, adminOnly: false },
-    { to: '/shoots', label: 'Photoshoots', icon: Camera, adminOnly: false },
-    { to: '/rooms', label: 'Rooms', icon: BedDouble, adminOnly: false },
-    { to: '/payments', label: 'Payments', icon: CreditCard, adminOnly: false },
+    { to: '/bookings', label: 'Bookings', icon: ListChecks, adminOnly: false },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, adminOnly: false },
-    { to: '/archived', label: 'Archived Records', icon: Archive, adminOnly: false },
-    { to: '/staff', label: 'Staff Management', icon: Users, adminOnly: true },
-    { to: '/audit-logs', label: 'Audit Logs', icon: ClipboardList, adminOnly: true },
     { to: '/settings', label: 'Settings', icon: Settings, adminOnly: false },
   ].filter((item) => !item.adminOnly || isAdmin);
+
+  const sectionItems = inBookingSection
+    ? BOOKING_SECTION_ITEMS
+    : inSettingsSection
+    ? [
+        { to: '/settings', label: 'Villa Settings' },
+        ...(isAdmin ? [{ to: '/staff', label: 'Staff Management' }] : []),
+        ...(isAdmin ? [{ to: '/audit-logs', label: 'Audit Logs' }] : []),
+        ...(isAdmin ? [{ to: '/whatsapp-reminders', label: 'WhatsApp Reminders' }] : []),
+      ]
+    : [];
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#183D2D] text-white">
       <div className="px-5 py-6 border-b border-white/10">
         <span
-          className="block text-xl font-semibold tracking-tight text-white"
+          className="block text-xl font-semibold tracking-[0.08em] uppercase text-white"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           {villaName}
@@ -92,11 +102,13 @@ export const AppShell: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/dashboard'}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  isActive
+                  isActive ||
+                  (item.to === '/bookings' && inBookingSection) ||
+                  (item.to === '/settings' && inSettingsSection)
                     ? 'bg-white/15 text-white'
                     : 'text-white/75 hover:bg-white/10 hover:text-white'
                 }`
@@ -133,7 +145,7 @@ export const AppShell: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-[#F7F6F2] text-[#1C2420]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:block w-64 shrink-0 sticky top-0 h-screen">
+      <aside className="hidden lg:block w-56 shrink-0 sticky top-0 h-screen">
         {sidebarContent}
       </aside>
 
@@ -144,7 +156,7 @@ export const AppShell: React.FC = () => {
             className="fixed inset-0 bg-black/50"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-64 max-w-[80vw] h-full z-10">
+          <aside className="relative w-56 max-w-[80vw] h-full z-10">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -193,6 +205,29 @@ export const AppShell: React.FC = () => {
         )}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto">
+          {sectionItems.length > 0 && (
+            <nav
+              aria-label={inBookingSection ? 'Booking sections' : 'Settings sections'}
+              className="flex gap-2 overflow-x-auto pb-5"
+            >
+              {sectionItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end
+                  className={({ isActive }) =>
+                    `shrink-0 rounded-full border px-4 py-2 text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'border-[#183D2D] bg-[#183D2D] text-white'
+                        : 'border-[#E2DFD5] bg-white text-[#3D3F3A] hover:border-[#183D2D]/40'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          )}
           <Outlet />
         </main>
       </div>

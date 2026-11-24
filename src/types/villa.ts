@@ -57,6 +57,7 @@ export interface StaffMember {
   role: StaffRole;
   slotNumber: 1 | 2 | 3 | 4;
   phone?: string;
+  whatsappPhone?: string;
   isActive: boolean;
   uid?: string;
   lastLoginAt?: FirestoreTimestampLike;
@@ -101,6 +102,8 @@ export interface ShootBooking {
   venueResource: VenueResource;
   startTime: string; // HH:mm
   endTime: string; // HH:mm
+  paxCount?: number;
+  assignedStaffId?: string;
   customerName: string;
   customerPhone: string;
   totalPayment: number;
@@ -223,6 +226,30 @@ export interface VillaSettings {
   adminEmails: string[];
   updatedBy: string;
   updatedAt?: FirestoreTimestampLike;
+}
+
+export type WhatsAppReminderStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface WhatsAppReminder {
+  id: string;
+  bookingId: string;
+  bookingCode: string;
+  clientName: string;
+  shootDate: string;
+  assignedStaffId: string | null;
+  assignedStaffName: string | null;
+  staffWhatsAppNumber: string | null;
+  periodId: string;
+  status: WhatsAppReminderStatus;
+  attemptCount: number;
+  sentAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  deliveryStatus?: string | null;
+  deliveredAt?: string | null;
+  failureReason?: string | null;
+  skipReason?: string | null;
+  providerMessageId?: string | null;
 }
 
 export type UnifiedBooking =

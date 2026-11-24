@@ -11,7 +11,6 @@ import { useToast } from '../contexts/ToastContext';
 import {
   addDaysToDateStr,
   findRoomBookingConflict,
-  formatCurrency,
   getColomboDateStr,
 } from '../utils/colomboTime';
 import { createRoomBooking, updateRoomBooking } from '../services/villaService';
@@ -36,7 +35,6 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
     roomTypes,
     roomBookings,
     blockedSchedules,
-    currency,
     authorizedEmails,
     adminEmails,
   } = useVillaData();
@@ -52,7 +50,6 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
     register,
     handleSubmit,
     watch,
-    setValue,
     reset,
     formState: { errors },
   } = useForm<RoomBookingFormValues>({
@@ -66,7 +63,7 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
       checkInTime: '14:00',
       checkOutDate: addDaysToDateStr(getColomboDateStr(), 1),
       checkOutTime: '11:00',
-      totalPayment: firstAvailableRoom?.price || 0,
+      totalPayment: 0,
       advancePayment: 0,
       paymentMethod: 'Bank Transfer',
       referenceNumber: '',
@@ -97,7 +94,6 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
         });
       } else {
         const chosenId = defaultRoomTypeId || firstAvailableRoom?.id || '';
-        const chosenRoom = activeRooms.find((r) => r.id === chosenId);
         const today = getColomboDateStr();
         reset({
           roomTypeId: chosenId,
@@ -108,7 +104,7 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
           checkInTime: '14:00',
           checkOutDate: addDaysToDateStr(today, 1),
           checkOutTime: '11:00',
-          totalPayment: chosenRoom?.price || 0,
+          totalPayment: 0,
           advancePayment: 0,
           paymentMethod: 'Bank Transfer',
           referenceNumber: '',
@@ -125,12 +121,6 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
   const wOutDate = watch('checkOutDate');
   const wOutTime = watch('checkOutTime');
   const wStatus = watch('status');
-  const wTotal = Number(watch('totalPayment')) || 0;
-  const wAdvance = editingBooking
-    ? editingBooking.advancePayment
-    : Number(watch('advancePayment')) || 0;
-  const liveDue = Math.max(0, wTotal - wAdvance);
-
   const selectedRoom = activeRooms.find((r) => r.id === wRoomTypeId);
 
   const liveConflict = React.useMemo(() => {
@@ -163,13 +153,6 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
   ]);
 
   if (!open) return null;
-
-  const handleAutoCalculateRate = () => {
-    if (!selectedRoom || !wInDate || !wOutDate) return;
-    const ms = new Date(`${wOutDate}T12:00:00Z`).getTime() - new Date(`${wInDate}T12:00:00Z`).getTime();
-    const nights = Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
-    setValue('totalPayment', Number((nights * selectedRoom.price).toFixed(2)));
-  };
 
   const onSubmit = async (values: RoomBookingFormValues) => {
     const actor = buildActorContext(authorizedEmails, adminEmails);
@@ -398,93 +381,10 @@ export const RoomBookingFormModal: React.FC<RoomBookingFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3.5 rounded-lg bg-[#F7F6F2] border border-[#E2DFD5]">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-[#3D3F3A]">
-                  Total Payment ({currency})
-                </label>
-                {selectedRoom && (
-                  <button
-                    type="button"
-                    onClick={handleAutoCalculateRate}
-                    className="text-[11px] font-medium text-[#183D2D] hover:underline"
-                  >
-                    Calc by nights
-                  </button>
-                )}
-              </div>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                {...register('totalPayment')}
-                className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                {editingBooking ? 'Paid So Far (Ledger)' : `Advance Payment (${currency})`}
-              </label>
-              {editingBooking ? (
-                <div className="rounded-lg border border-[#E2DFD5] bg-[#EFEDE6] px-3 py-2 text-sm font-mono tabular-nums text-[#3D3F3A]">
-                  {formatCurrency(editingBooking.advancePayment, currency)}
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    {...register('advancePayment')}
-                    className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-                  />
-                  {errors.advancePayment && (
-                    <p className="text-xs text-[#B91C1C] mt-1">{errors.advancePayment.message}</p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                Due Payment (Auto)
-              </label>
-              <div className="rounded-lg border border-[#E2DFD5] bg-white px-3 py-2 text-sm font-mono tabular-nums font-semibold text-[#B45309]">
-                {formatCurrency(liveDue, currency)}
-              </div>
-            </div>
-          </div>
-
-          {!editingBooking && Number(watch('advancePayment')) > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Advance Payment Method
-                </label>
-                <select
-                  {...register('paymentMethod')}
-                  className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#183D2D]"
-                >
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Reference Number (optional)
-                </label>
-                <input
-                  type="text"
-                  {...register('referenceNumber')}
-                  className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#183D2D]"
-                />
-              </div>
-            </div>
-          )}
+          <input type="hidden" {...register('totalPayment')} />
+          <input type="hidden" {...register('advancePayment')} />
+          <input type="hidden" {...register('paymentMethod')} />
+          <input type="hidden" {...register('referenceNumber')} />
 
           <div>
             <label className="block text-xs font-medium text-[#3D3F3A] mb-1">

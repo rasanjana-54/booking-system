@@ -43,6 +43,7 @@ export const StaffManagementPage: React.FC = () => {
       name: '',
       role: 'STAFF',
       phone: '',
+      whatsappPhone: '',
       isActive: true,
     },
   });
@@ -55,6 +56,7 @@ export const StaffManagementPage: React.FC = () => {
       name: '',
       role: 'STAFF',
       phone: '',
+      whatsappPhone: '',
       isActive: true,
     });
     setModalOpen(true);
@@ -68,6 +70,7 @@ export const StaffManagementPage: React.FC = () => {
       name: s.name,
       role: s.role,
       phone: s.phone || '',
+      whatsappPhone: s.whatsappPhone || '',
       isActive: s.isActive,
     });
     setModalOpen(true);
@@ -84,6 +87,7 @@ export const StaffManagementPage: React.FC = () => {
           name: values.name,
           role: values.role,
           phone: values.phone,
+          whatsappPhone: values.whatsappPhone,
           isActive: values.isActive,
         });
         notify('Staff account updated', 'success', editingStaff.email);
@@ -93,6 +97,7 @@ export const StaffManagementPage: React.FC = () => {
           name: values.name,
           role: values.role,
           phone: values.phone,
+          whatsappPhone: values.whatsappPhone,
           isActive: values.isActive,
         });
         notify('Authorized staff account provisioned', 'success', values.email);
@@ -113,6 +118,7 @@ export const StaffManagementPage: React.FC = () => {
         name: s.name,
         role: s.role,
         phone: s.phone,
+        whatsappPhone: s.whatsappPhone,
         isActive: !s.isActive,
       });
       notify(
@@ -225,6 +231,11 @@ export const StaffManagementPage: React.FC = () => {
                   <p className="text-xs font-mono text-[#3D3F3A] mt-0.5">{member.email}</p>
                   {member.phone && (
                     <p className="text-xs font-mono text-[#6E6C63] mt-0.5">{member.phone}</p>
+                  )}
+                  {member.whatsappPhone && (
+                    <p className="text-xs font-mono text-[#6E6C63] mt-0.5">
+                      WhatsApp: {member.whatsappPhone}
+                    </p>
                   )}
                 </div>
                 <StatusBadge status={member.isActive ? 'Active' : 'Inactive'} />
@@ -362,6 +373,23 @@ export const StaffManagementPage: React.FC = () => {
                     className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
+                  WhatsApp Number (international format)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="+94771234567"
+                  {...register('whatsappPhone')}
+                  className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm font-mono"
+                />
+                {errors.whatsappPhone && (
+                  <p className="text-xs text-[#B91C1C] mt-1">
+                    {errors.whatsappPhone.message}
+                  </p>
+                )}
               </div>
 
               {editingStaff?.email !== SUPER_ADMIN_EMAIL && (

@@ -5,13 +5,11 @@ import {
   BedDouble,
   CalendarDays,
   Camera,
-  CreditCard,
   PartyPopper,
 } from 'lucide-react';
 import { useVillaData } from '../contexts/VillaDataContext';
 import {
   formatColomboDate,
-  formatCurrency,
   getColomboDateStr,
   getColomboPeriodRange,
   getColomboShootPeriodRange,
@@ -19,26 +17,16 @@ import {
 } from '../utils/colomboTime';
 import { StatusBadge } from '../components/StatusBadge';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 import { UnifiedBooking } from '../types/villa';
 
 type DateFilterPreset = 'all' | 'today' | 'week' | 'month' | 'custom';
 
 export const DashboardPage: React.FC = () => {
-  const { events, shoots, roomBookings, currency, loading } = useVillaData();
+  const { events, shoots, roomBookings, loading } = useVillaData();
   const [preset, setPreset] = useState<DateFilterPreset>('month');
   const [customStart, setCustomStart] = useState(getColomboPeriodRange('month').start);
   const [customEnd, setCustomEnd] = useState(getColomboPeriodRange('month').end);
   const [selectedBooking, setSelectedBooking] = useState<UnifiedBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<{
-    id: string;
-    bookingCode: string;
-    bookingType: 'EVENT' | 'SHOOT' | 'ROOM';
-    customerName: string;
-    totalPayment: number;
-    advancePayment: number;
-    duePayment: number;
-  } | null>(null);
 
   const todayStr = getColomboDateStr();
 
@@ -83,24 +71,8 @@ export const DashboardPage: React.FC = () => {
     [activeRooms, dateBounds]
   );
 
-  // KPI Metrics (excluding Cancelled from revenue projections)
+  // Booking counts exclude cancelled bookings where appropriate.
   const metrics = useMemo(() => {
-    const nonCancelledEvents = filteredEvents.filter((e) => e.status !== 'Cancelled');
-    const nonCancelledShoots = filteredShoots.filter((s) => s.status !== 'Cancelled');
-    const nonCancelledRooms = filteredRooms.filter((r) => r.status !== 'Cancelled');
-
-    const eventRevenue = nonCancelledEvents.reduce((s, e) => s + e.totalPayment, 0);
-    const shootRevenue = nonCancelledShoots.reduce((s, x) => s + x.totalPayment, 0);
-    const roomRevenue = nonCancelledRooms.reduce((s, r) => s + r.totalPayment, 0);
-
-    const eventPaid = nonCancelledEvents.reduce((s, e) => s + e.advancePayment, 0);
-    const shootPaid = nonCancelledShoots.reduce((s, x) => s + x.advancePayment, 0);
-    const roomPaid = nonCancelledRooms.reduce((s, r) => s + r.advancePayment, 0);
-
-    const eventDue = nonCancelledEvents.reduce((s, e) => s + e.duePayment, 0);
-    const shootDue = nonCancelledShoots.reduce((s, x) => s + x.duePayment, 0);
-    const roomDue = nonCancelledRooms.reduce((s, r) => s + r.duePayment, 0);
-
     const todaysBookings =
       activeEvents.filter((e) => e.eventDate === todayStr && e.status !== 'Cancelled').length +
       activeShoots.filter((s) => s.shootDate === todayStr && s.status !== 'Cancelled').length +
@@ -122,14 +94,6 @@ export const DashboardPage: React.FC = () => {
       totalRooms: filteredRooms.length,
       todaysBookings,
       upcomingBookings,
-      totalRevenue: eventRevenue + shootRevenue + roomRevenue,
-      totalAdvance: eventPaid + shootPaid + roomPaid,
-      totalOutstanding: eventDue + shootDue + roomDue,
-      breakdown: [
-        { label: 'Events', revenue: eventRevenue, paid: eventPaid, due: eventDue, color: '#183D2D' },
-        { label: 'Shoots', revenue: shootRevenue, paid: shootPaid, due: shootDue, color: '#B45309' },
-        { label: 'Rooms', revenue: roomRevenue, paid: roomPaid, due: roomDue, color: '#1D4ED8' },
-      ],
     };
   }, [filteredEvents, filteredShoots, filteredRooms, activeEvents, activeShoots, activeRooms, todayStr]);
 
@@ -208,16 +172,11 @@ export const DashboardPage: React.FC = () => {
     return list.slice(0, 8);
   }, [activeEvents, activeShoots, activeRooms, todayStr]);
 
-  const maxCategoryRevenue = Math.max(
-    1,
-    ...metrics.breakdown.map((b) => b.revenue)
-  );
-
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
               className="h-28 rounded-xl bg-white border border-[#E2DFD5] animate-pulse"
@@ -240,7 +199,7 @@ export const DashboardPage: React.FC = () => {
             Estate Operations Overview
           </h2>
           <p className="text-sm text-[#6E6C63] mt-0.5">
-            Live bookings, venue revenue, and upcoming calendar schedule ({todayStr})
+            Live bookings and upcoming calendar schedule ({todayStr})
           </p>
         </div>
 
@@ -290,7 +249,7 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 8 Core KPI Cards */}
+      {/* Booking Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-[#E2DFD5] rounded-xl p-5">
           <div className="flex items-center justify-between">
@@ -342,112 +301,38 @@ export const DashboardPage: React.FC = () => {
           <p className="text-xs text-[#6E6C63] mt-1">Active non-cancelled schedule</p>
         </div>
 
-        <div className="bg-white border border-[#E2DFD5] rounded-xl p-5 sm:col-span-2 lg:col-span-2">
-          <span className="text-xs font-medium text-[#6E6C63]">Total Booking Revenue</span>
-          <p className="text-2xl font-semibold text-[#1C2420] font-mono tabular-nums mt-2">
-            {formatCurrency(metrics.totalRevenue, currency)}
-          </p>
-          <p className="text-xs text-[#6E6C63] mt-1">
-            {preset === 'month'
-              ? 'Shoot revenue uses the 15th–14th cycle; other categories use the selected period.'
-              : 'Gross confirmed &amp; pending revenue in selected filter'}
-          </p>
-        </div>
-
-        <div className="bg-white border border-[#E2DFD5] rounded-xl p-5">
-          <span className="text-xs font-medium text-[#6E6C63]">Total Advance / Paid</span>
-          <p className="text-2xl font-semibold text-[#15803D] font-mono tabular-nums mt-2">
-            {formatCurrency(metrics.totalAdvance, currency)}
-          </p>
-          <p className="text-xs text-[#6E6C63] mt-1">Collected across ledger</p>
-        </div>
-
-        <div className="bg-white border border-[#E2DFD5] rounded-xl p-5">
-          <span className="text-xs font-medium text-[#6E6C63]">Outstanding Balance</span>
-          <p className="text-2xl font-semibold text-[#B45309] font-mono tabular-nums mt-2">
-            {formatCurrency(metrics.totalOutstanding, currency)}
-          </p>
-          <p className="text-xs text-[#6E6C63] mt-1">Pending guest collection</p>
-        </div>
       </div>
 
-      {/* Revenue Chart + Upcoming Schedule */}
+      {/* Booking Overview + Upcoming Schedule */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section className="lg:col-span-7 bg-white border border-[#E2DFD5] rounded-xl p-6">
           <div className="flex items-center justify-between pb-4 border-b border-[#E2DFD5]">
             <div>
               <h3 className="text-base font-semibold text-[#1C2420]">
-                Revenue &amp; Collection by Category
+                Bookings by Category
               </h3>
               <p className="text-xs text-[#6E6C63] mt-0.5">
-                Paid vs outstanding amounts across Events, Shoots, and Rooms
+                Booking counts in the selected period
               </p>
             </div>
-            <Link
-              to="/payments"
-              className="text-xs font-medium text-[#183D2D] hover:underline inline-flex items-center gap-1"
-            >
-              Payment Ledger <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
 
-          <div className="mt-5 space-y-5">
-            {metrics.breakdown.map((row) => {
-              const totalWidthPct = Math.round((row.revenue / maxCategoryRevenue) * 100);
-              const paidPct = row.revenue > 0 ? Math.min(100, Math.round((row.paid / row.revenue) * 100)) : 0;
-              return (
-                <div key={row.label} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-[#1C2420]">{row.label}</span>
-                    <div className="flex items-center gap-4 text-xs font-mono tabular-nums">
-                      <span className="text-[#15803D]">
-                        Paid: {formatCurrency(row.paid, currency)}
-                      </span>
-                      <span className="text-[#B45309]">
-                        Due: {formatCurrency(row.due, currency)}
-                      </span>
-                      <span className="font-semibold text-[#1C2420]">
-                        {formatCurrency(row.revenue, currency)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-3 w-full rounded-full bg-[#F7F6F2] overflow-hidden border border-[#E2DFD5]">
-                    <div
-                      className="h-full rounded-full transition-all flex overflow-hidden"
-                      style={{ width: `${Math.max(row.revenue > 0 ? 4 : 0, totalWidthPct)}%` }}
-                    >
-                      <div
-                        className="h-full"
-                        style={{ width: `${paidPct}%`, backgroundColor: row.color }}
-                      />
-                      <div
-                        className="h-full bg-[#D97706]/35"
-                        style={{ width: `${100 - paidPct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Collection Ratio Summary */}
-          <div className="mt-6 pt-4 border-t border-[#E2DFD5] flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-4 text-[#6E6C63]">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#183D2D]" /> Collected
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#D97706]/40" /> Outstanding Due
-              </span>
-            </div>
-            <span className="font-mono tabular-nums text-[#1C2420] font-medium">
-              Collection Rate:{' '}
-              {metrics.totalRevenue > 0
-                ? Math.round((metrics.totalAdvance / metrics.totalRevenue) * 100)
-                : 0}
-              %
-            </span>
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Events', count: metrics.totalEvents, color: '#183D2D' },
+              { label: 'Photoshoots', count: metrics.totalShoots, color: '#B45309' },
+              { label: 'Rooms', count: metrics.totalRooms, color: '#1D4ED8' },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="rounded-lg border border-[#E2DFD5] bg-[#F7F6F2] p-4"
+              >
+                <p className="text-xs font-medium text-[#6E6C63]">{row.label}</p>
+                <p className="mt-2 text-2xl font-semibold font-mono tabular-nums" style={{ color: row.color }}>
+                  {row.count}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -557,8 +442,6 @@ export const DashboardPage: React.FC = () => {
                   <th className="px-6 py-3 font-medium">Category</th>
                   <th className="px-6 py-3 font-medium">Customer</th>
                   <th className="px-6 py-3 font-medium">Schedule Date</th>
-                  <th className="px-6 py-3 font-medium text-right">Total</th>
-                  <th className="px-6 py-3 font-medium text-right">Due</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -588,45 +471,17 @@ export const DashboardPage: React.FC = () => {
                       <td className="px-6 py-3 text-xs font-mono">
                         {formatColomboDate(scheduleDate)}
                       </td>
-                      <td className="px-6 py-3 text-right font-mono tabular-nums text-xs">
-                        {formatCurrency(d.totalPayment, currency)}
-                      </td>
-                      <td className="px-6 py-3 text-right font-mono tabular-nums text-xs font-medium text-[#B45309]">
-                        {formatCurrency(d.duePayment, currency)}
-                      </td>
                       <td className="px-6 py-3">
                         <StatusBadge status={d.status} />
                       </td>
                       <td className="px-6 py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBooking(item)}
-                            className="text-xs font-medium text-[#183D2D] hover:underline"
-                          >
-                            View
-                          </button>
-                          {d.duePayment > 0 && d.status !== 'Cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPaymentTarget({
-                                  id: d.id,
-                                  bookingCode: d.bookingCode,
-                                  bookingType: item.category,
-                                  customerName: d.customerName,
-                                  totalPayment: d.totalPayment,
-                                  advancePayment: d.advancePayment,
-                                  duePayment: d.duePayment,
-                                })
-                              }
-                              className="inline-flex items-center gap-1 text-xs font-medium text-[#3D3F3A] hover:text-[#183D2D]"
-                              title="Record Payment"
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBooking(item)}
+                          className="text-xs font-medium text-[#183D2D] hover:underline"
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   );
@@ -640,29 +495,6 @@ export const DashboardPage: React.FC = () => {
       <BookingDetailModal
         booking={selectedBooking}
         onClose={() => setSelectedBooking(null)}
-        onRecordPayment={
-          selectedBooking
-            ? () => {
-                const d = selectedBooking.data;
-                setPaymentTarget({
-                  id: d.id,
-                  bookingCode: d.bookingCode,
-                  bookingType: selectedBooking.category,
-                  customerName: d.customerName,
-                  totalPayment: d.totalPayment,
-                  advancePayment: d.advancePayment,
-                  duePayment: d.duePayment,
-                });
-                setSelectedBooking(null);
-              }
-            : undefined
-        }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={paymentTarget}
-        onClose={() => setPaymentTarget(null)}
       />
     </div>
   );

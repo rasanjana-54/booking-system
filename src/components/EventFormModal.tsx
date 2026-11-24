@@ -10,7 +10,6 @@ import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
 import {
   findVenueScheduleConflict,
-  formatCurrency,
   getColomboDateStr,
 } from '../utils/colomboTime';
 import { createEventBooking, updateEventBooking } from '../services/villaService';
@@ -29,7 +28,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   onClose,
 }) => {
   const { buildActorContext } = useAuth();
-  const { events, shoots, blockedSchedules, currency, authorizedEmails, adminEmails } =
+  const { events, shoots, blockedSchedules, authorizedEmails, adminEmails } =
     useVillaData();
   const { notify } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -107,12 +106,6 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const wEnd = watch('endTime');
   const wVenue = watch('venueResource');
   const wStatus = watch('status');
-  const wTotal = Number(watch('totalPayment')) || 0;
-  const wAdvance = editingEvent
-    ? editingEvent.advancePayment
-    : Number(watch('advancePayment')) || 0;
-  const liveDue = Math.max(0, wTotal - wAdvance);
-
   const liveConflict = React.useMemo(() => {
     if (!open || !wDate || !wStart || !wEnd || wStatus === 'Cancelled') return null;
     return findVenueScheduleConflict({
@@ -375,86 +368,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3.5 rounded-lg bg-[#F7F6F2] border border-[#E2DFD5]">
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                Total Payment ({currency})
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                {...register('totalPayment')}
-                className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-              />
-              {errors.totalPayment && (
-                <p className="text-xs text-[#B91C1C] mt-1">{errors.totalPayment.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                {editingEvent ? 'Paid So Far (Ledger)' : `Advance Payment (${currency})`}
-              </label>
-              {editingEvent ? (
-                <div className="rounded-lg border border-[#E2DFD5] bg-[#EFEDE6] px-3 py-2 text-sm font-mono tabular-nums text-[#3D3F3A]">
-                  {formatCurrency(editingEvent.advancePayment, currency)}
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    {...register('advancePayment')}
-                    className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-                  />
-                  {errors.advancePayment && (
-                    <p className="text-xs text-[#B91C1C] mt-1">{errors.advancePayment.message}</p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                Due Payment (Auto)
-              </label>
-              <div className="rounded-lg border border-[#E2DFD5] bg-white px-3 py-2 text-sm font-mono tabular-nums font-semibold text-[#B45309]">
-                {formatCurrency(liveDue, currency)}
-              </div>
-            </div>
-          </div>
-
-          {!editingEvent && Number(watch('advancePayment')) > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Advance Payment Method
-                </label>
-                <select
-                  {...register('paymentMethod')}
-                  className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#183D2D]"
-                >
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Payment Reference (optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Receipt / transfer ref"
-                  {...register('referenceNumber')}
-                  className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#183D2D]"
-                />
-              </div>
-            </div>
-          )}
+          <input type="hidden" {...register('totalPayment')} />
+          <input type="hidden" {...register('advancePayment')} />
+          <input type="hidden" {...register('paymentMethod')} />
+          <input type="hidden" {...register('referenceNumber')} />
 
           <div>
             <label className="block text-xs font-medium text-[#3D3F3A] mb-1">

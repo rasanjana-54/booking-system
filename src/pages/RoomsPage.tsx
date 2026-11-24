@@ -3,7 +3,6 @@ import {
   Archive,
   BedDouble,
   CheckCircle2,
-  CreditCard,
   Edit3,
   Eye,
   Plus,
@@ -18,7 +17,6 @@ import {
   addDaysToDateStr,
   findRoomBookingConflict,
   formatColomboDate,
-  formatCurrency,
   getColomboDateStr,
 } from '../utils/colomboTime';
 import { archiveBooking, archiveOrRestoreRoomType } from '../services/villaService';
@@ -26,12 +24,11 @@ import { StatusBadge } from '../components/StatusBadge';
 import { RoomTypeFormModal } from '../components/RoomTypeFormModal';
 import { RoomBookingFormModal } from '../components/RoomBookingFormModal';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export const RoomsPage: React.FC = () => {
   const { currentStaff, buildActorContext } = useAuth();
-  const { roomTypes, roomBookings, blockedSchedules, currency, authorizedEmails, adminEmails } =
+  const { roomTypes, roomBookings, blockedSchedules, authorizedEmails, adminEmails } =
     useVillaData();
   const { notify } = useToast();
 
@@ -56,7 +53,6 @@ export const RoomsPage: React.FC = () => {
   const [defaultRoomId, setDefaultRoomId] = useState<string | undefined>(undefined);
 
   const [detailBooking, setDetailBooking] = useState<RoomBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<RoomBooking | null>(null);
   const [archiveBookingTarget, setArchiveBookingTarget] = useState<RoomBooking | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -303,9 +299,6 @@ export const RoomsPage: React.FC = () => {
                     <span className="inline-flex items-center gap-1.5 text-[#6E6C63]">
                       <Users className="w-3.5 h-3.5" /> Max {rt.maxCapacity} Guests
                     </span>
-                    <span className="font-mono tabular-nums font-semibold text-[#1C2420] text-sm">
-                      {formatCurrency(rt.price, currency)} / night
-                    </span>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-2">
@@ -381,7 +374,7 @@ export const RoomsPage: React.FC = () => {
               <div className="p-12 text-center">
                 <p className="text-sm font-medium text-[#1C2420]">No room reservations found</p>
                 <p className="text-xs text-[#6E6C63] mt-1 mb-4">
-                  Create a new suite reservation to track check-in, meals, and payments.
+                  Create a new suite reservation to track check-in and meals.
                 </p>
                 <button
                   type="button"
@@ -404,8 +397,6 @@ export const RoomsPage: React.FC = () => {
                       <th className="px-5 py-3 font-medium">Suite &amp; Meals</th>
                       <th className="px-5 py-3 font-medium">Guest</th>
                       <th className="px-5 py-3 font-medium">Check-in / Check-out</th>
-                      <th className="px-5 py-3 font-medium text-right">Total</th>
-                      <th className="px-5 py-3 font-medium text-right">Due</th>
                       <th className="px-5 py-3 font-medium">Status</th>
                       <th className="px-5 py-3 font-medium text-right">Actions</th>
                     </tr>
@@ -436,12 +427,6 @@ export const RoomsPage: React.FC = () => {
                               Out: {formatColomboDate(rb.checkOutDate)} ({rb.checkOutTime})
                             </p>
                           </td>
-                          <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
-                            {formatCurrency(rb.totalPayment, currency)}
-                          </td>
-                          <td className="px-5 py-3 text-right font-mono tabular-nums text-xs font-medium text-[#B45309]">
-                            {formatCurrency(rb.duePayment, currency)}
-                          </td>
                           <td className="px-5 py-3">
                             <StatusBadge status={rb.status} />
                           </td>
@@ -466,16 +451,6 @@ export const RoomsPage: React.FC = () => {
                                   title="Edit Booking"
                                 >
                                   <Edit3 className="w-4 h-4" />
-                                </button>
-                              )}
-                              {rb.status !== 'Cancelled' && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPaymentTarget(rb)}
-                                  className="p-1.5 rounded-lg text-[#183D2D] hover:bg-[#EEF3F0]"
-                                  title="Record Payment"
-                                >
-                                  <CreditCard className="w-4 h-4" />
                                 </button>
                               )}
                               {!lockedForStaff && (
@@ -535,14 +510,6 @@ export const RoomsPage: React.FC = () => {
               }
             : undefined
         }
-        onRecordPayment={
-          detailBooking && detailBooking.status !== 'Cancelled'
-            ? () => {
-                setPaymentTarget(detailBooking);
-                setDetailBooking(null);
-              }
-            : undefined
-        }
         onArchive={
           detailBooking &&
           (isAdmin ||
@@ -553,24 +520,6 @@ export const RoomsPage: React.FC = () => {
               }
             : undefined
         }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={
-          paymentTarget
-            ? {
-                id: paymentTarget.id,
-                bookingCode: paymentTarget.bookingCode,
-                bookingType: 'ROOM',
-                customerName: paymentTarget.customerName,
-                totalPayment: paymentTarget.totalPayment,
-                advancePayment: paymentTarget.advancePayment,
-                duePayment: paymentTarget.duePayment,
-              }
-            : null
-        }
-        onClose={() => setPaymentTarget(null)}
       />
 
       <ConfirmModal

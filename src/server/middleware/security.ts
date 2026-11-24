@@ -52,6 +52,11 @@ export function verifySameOriginCsrf(
   res: Response,
   next: NextFunction
 ): void {
+  if (req.path === '/cron/whatsapp-reminders' || req.path === '/webhooks/whatsapp') {
+    next();
+    return;
+  }
+
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
     next();
     return;
@@ -100,25 +105,29 @@ export async function requireStaffAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.includes('local-admin-token')) {
+  const useLocalAdminSession = () => {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
+    }
+
     req.idToken = 'local-admin-token';
     req.uid = 'admin_local';
     req.userEmail = SUPER_ADMIN_EMAIL;
     req.userDisplayName = 'Villa Administrator';
     req.staff = LOCAL_ADMIN_STAFF;
     next();
+  };
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.includes('local-admin-token')) {
+    useLocalAdminSession();
     return;
   }
 
   const token = authHeader.slice('Bearer '.length).trim();
   if (!token) {
-    req.idToken = 'local-admin-token';
-    req.uid = 'admin_local';
-    req.userEmail = SUPER_ADMIN_EMAIL;
-    req.userDisplayName = 'Villa Administrator';
-    req.staff = LOCAL_ADMIN_STAFF;
-    next();
+    useLocalAdminSession();
     return;
   }
 
@@ -159,13 +168,12 @@ export async function requireStaffAuth(
     req.staff = staffDoc;
     next();
   } catch (err) {
-    console.warn('Firebase token verification failed, using local admin session:', err);
-    req.idToken = 'local-admin-token';
-    req.uid = 'admin_local';
-    req.userEmail = SUPER_ADMIN_EMAIL;
-    req.userDisplayName = 'Villa Administrator';
-    req.staff = LOCAL_ADMIN_STAFF;
-    next();
+    console.warn('Firebase token verification failed:', err);
+    if (process.env.NODE_ENV === 'production') {
+      res.status(401).json({ error: 'Invalid authentication token.' });
+      return;
+    }
+    useLocalAdminSession();
   }
 }
 

@@ -10,7 +10,6 @@ import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
 import {
   findVenueScheduleConflict,
-  formatCurrency,
   getColomboDateStr,
 } from '../utils/colomboTime';
 import { createShootBooking, updateShootBooking } from '../services/villaService';
@@ -28,8 +27,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
   editingShoot,
   onClose,
 }) => {
-  const { buildActorContext } = useAuth();
-  const { events, shoots, blockedSchedules, currency, authorizedEmails, adminEmails } =
+  const { buildActorContext, currentStaff } = useAuth();
+  const { events, shoots, blockedSchedules, authorizedEmails, adminEmails, staffMembers } =
     useVillaData();
   const { notify } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +48,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
       venueResource: 'Garden Pavilion',
       startTime: '08:00',
       endTime: '12:00',
+      paxCount: 1,
+      assignedStaffId: currentStaff?.email || '',
       customerName: '',
       customerPhone: '',
       totalPayment: 0,
@@ -70,6 +71,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
           venueResource: editingShoot.venueResource,
           startTime: editingShoot.startTime,
           endTime: editingShoot.endTime,
+          paxCount: editingShoot.paxCount || 1,
+          assignedStaffId: editingShoot.assignedStaffId || currentStaff?.email || '',
           customerName: editingShoot.customerName,
           customerPhone: editingShoot.customerPhone,
           totalPayment: editingShoot.totalPayment,
@@ -86,6 +89,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
           venueResource: 'Garden Pavilion',
           startTime: '08:00',
           endTime: '12:00',
+          paxCount: 1,
+          assignedStaffId: currentStaff?.email || '',
           customerName: '',
           customerPhone: '',
           totalPayment: 0,
@@ -97,19 +102,13 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
         });
       }
     }
-  }, [open, editingShoot, reset]);
+  }, [open, editingShoot, reset, currentStaff?.email]);
 
   const wDate = watch('shootDate');
   const wStart = watch('startTime');
   const wEnd = watch('endTime');
   const wVenue = watch('venueResource');
   const wStatus = watch('status');
-  const wTotal = Number(watch('totalPayment')) || 0;
-  const wAdvance = editingShoot
-    ? editingShoot.advancePayment
-    : Number(watch('advancePayment')) || 0;
-  const liveDue = Math.max(0, wTotal - wAdvance);
-
   const liveConflict = React.useMemo(() => {
     if (!open || !wDate || !wStart || !wEnd || wStatus === 'Cancelled') return null;
     return findVenueScheduleConflict({
@@ -170,6 +169,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
           venueResource: values.venueResource,
           startTime: values.startTime,
           endTime: values.endTime,
+          paxCount: values.paxCount,
+          assignedStaffId: values.assignedStaffId,
           customerName: values.customerName,
           customerPhone: values.customerPhone,
           totalPayment: values.totalPayment,
@@ -184,6 +185,8 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
           venueResource: values.venueResource,
           startTime: values.startTime,
           endTime: values.endTime,
+          paxCount: values.paxCount,
+          assignedStaffId: values.assignedStaffId,
           customerName: values.customerName,
           customerPhone: values.customerPhone,
           totalPayment: values.totalPayment,
@@ -239,6 +242,58 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
+                Guests / Pax
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                {...register('paxCount')}
+                className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm"
+              />
+              {errors.paxCount && (
+                <p className="text-xs text-[#B91C1C] mt-1">{errors.paxCount.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
+                Assigned Staff
+              </label>
+              {currentStaff?.role === 'ADMIN' ? (
+                <select
+                  {...register('assignedStaffId')}
+                  className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select staff member</option>
+                  {staffMembers
+                    .filter((member) => member.isActive)
+                    .map((member) => (
+                      <option key={member.id} value={member.email}>
+                        {member.name} ({member.email})
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={currentStaff?.name || ''}
+                    disabled
+                    className="w-full rounded-lg border border-[#CDC9BC] bg-[#F7F6F2] px-3 py-2 text-sm"
+                  />
+                  <input type="hidden" {...register('assignedStaffId')} />
+                </>
+              )}
+              {errors.assignedStaffId && (
+                <p className="text-xs text-[#B91C1C] mt-1">
+                  {errors.assignedStaffId.message}
+                </p>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-[#3D3F3A] mb-1">Shoot Type</label>
@@ -354,82 +409,10 @@ export const ShootFormModal: React.FC<ShootFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3.5 rounded-lg bg-[#F7F6F2] border border-[#E2DFD5]">
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                Total Payment ({currency})
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                {...register('totalPayment')}
-                className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                {editingShoot ? 'Paid So Far (Ledger)' : `Advance Payment (${currency})`}
-              </label>
-              {editingShoot ? (
-                <div className="rounded-lg border border-[#E2DFD5] bg-[#EFEDE6] px-3 py-2 text-sm font-mono tabular-nums text-[#3D3F3A]">
-                  {formatCurrency(editingShoot.advancePayment, currency)}
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    {...register('advancePayment')}
-                    className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:border-[#183D2D]"
-                  />
-                  {errors.advancePayment && (
-                    <p className="text-xs text-[#B91C1C] mt-1">{errors.advancePayment.message}</p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                Due Payment (Auto)
-              </label>
-              <div className="rounded-lg border border-[#E2DFD5] bg-white px-3 py-2 text-sm font-mono tabular-nums font-semibold text-[#B45309]">
-                {formatCurrency(liveDue, currency)}
-              </div>
-            </div>
-          </div>
-
-          {!editingShoot && Number(watch('advancePayment')) > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Advance Payment Method
-                </label>
-                <select
-                  {...register('paymentMethod')}
-                  className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#183D2D]"
-                >
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-                  Reference Number (optional)
-                </label>
-                <input
-                  type="text"
-                  {...register('referenceNumber')}
-                  className="w-full rounded-lg border border-[#CDC9BC] px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#183D2D]"
-                />
-              </div>
-            </div>
-          )}
+          <input type="hidden" {...register('totalPayment')} />
+          <input type="hidden" {...register('advancePayment')} />
+          <input type="hidden" {...register('paymentMethod')} />
+          <input type="hidden" {...register('referenceNumber')} />
 
           <div>
             <label className="block text-xs font-medium text-[#3D3F3A] mb-1">

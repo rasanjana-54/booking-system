@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
 import { BookingCategory, RoomType } from '../types/villa';
-import { formatColomboDate, formatCurrency } from '../utils/colomboTime';
+import { formatColomboDate } from '../utils/colomboTime';
 import {
   archiveOrRestoreRoomType,
   permanentlyDeleteBooking,
@@ -22,7 +22,6 @@ type ArchivedRow =
       title: string;
       customer: string;
       date: string;
-      amount: number;
       status: string;
     }
   | {
@@ -35,7 +34,7 @@ type ArchivedRow =
 
 export const ArchivedPage: React.FC = () => {
   const { currentStaff, buildActorContext } = useAuth();
-  const { events, shoots, roomBookings, roomTypes, currency, authorizedEmails, adminEmails } =
+  const { events, shoots, roomBookings, roomTypes, authorizedEmails, adminEmails } =
     useVillaData();
   const { notify } = useToast();
 
@@ -56,7 +55,6 @@ export const ArchivedPage: React.FC = () => {
           title: `${e.eventType} (${e.venueResource})`,
           customer: e.customerName,
           date: e.eventDate,
-          amount: e.totalPayment,
           status: e.status,
         })),
       ...shoots
@@ -69,7 +67,6 @@ export const ArchivedPage: React.FC = () => {
           title: `${s.shootType} (${s.venueResource})`,
           customer: s.customerName,
           date: s.shootDate,
-          amount: s.totalPayment,
           status: s.status,
         })),
       ...roomBookings
@@ -82,7 +79,6 @@ export const ArchivedPage: React.FC = () => {
           title: r.roomTypeName,
           customer: r.customerName,
           date: r.checkInDate,
-          amount: r.totalPayment,
           status: r.status,
         })),
       ...roomTypes
@@ -166,7 +162,6 @@ export const ArchivedPage: React.FC = () => {
                   <th className="px-5 py-3 font-medium">Type &amp; Details</th>
                   <th className="px-5 py-3 font-medium">Customer</th>
                   <th className="px-5 py-3 font-medium">Date</th>
-                  <th className="px-5 py-3 font-medium text-right">Total</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   {isAdmin && <th className="px-5 py-3 font-medium text-right">Admin Actions</th>}
                 </tr>
@@ -188,9 +183,6 @@ export const ArchivedPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-3 text-xs font-mono">
                       {row.kind === 'BOOKING' ? formatColomboDate(row.date) : '—'}
-                    </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
-                      {row.kind === 'BOOKING' ? formatCurrency(row.amount, currency) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       {row.kind === 'BOOKING' ? (

@@ -1,20 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { Archive, CreditCard, Edit3, Eye, Plus, Search } from 'lucide-react';
+import { Archive, Edit3, Eye, Plus, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
 import { ShootBooking } from '../types/villa';
-import { formatColomboDate, formatCurrency } from '../utils/colomboTime';
+import { formatColomboDate } from '../utils/colomboTime';
 import { archiveBooking } from '../services/villaService';
 import { StatusBadge } from '../components/StatusBadge';
 import { ShootFormModal } from '../components/ShootFormModal';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export const ShootsPage: React.FC = () => {
   const { currentStaff, buildActorContext } = useAuth();
-  const { shoots, currency, authorizedEmails, adminEmails } = useVillaData();
+  const { shoots, authorizedEmails, adminEmails } = useVillaData();
   const { notify } = useToast();
 
   const [search, setSearch] = useState('');
@@ -25,7 +24,6 @@ export const ShootsPage: React.FC = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingShoot, setEditingShoot] = useState<ShootBooking | null>(null);
   const [detailShoot, setDetailShoot] = useState<ShootBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<ShootBooking | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ShootBooking | null>(null);
   const [archiving, setArchiving] = useState(false);
 
@@ -176,8 +174,6 @@ export const ShootsPage: React.FC = () => {
                   <th className="px-5 py-3 font-medium">Type &amp; Venue</th>
                   <th className="px-5 py-3 font-medium">Date &amp; Time</th>
                   <th className="px-5 py-3 font-medium">Customer</th>
-                  <th className="px-5 py-3 font-medium text-right">Total</th>
-                  <th className="px-5 py-3 font-medium text-right">Due</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -205,12 +201,6 @@ export const ShootsPage: React.FC = () => {
                         <p className="font-medium text-[#1C2420]">{sht.customerName}</p>
                         <p className="text-xs text-[#6E6C63] font-mono">{sht.customerPhone}</p>
                       </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
-                        {formatCurrency(sht.totalPayment, currency)}
-                      </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs font-medium text-[#B45309]">
-                        {formatCurrency(sht.duePayment, currency)}
-                      </td>
                       <td className="px-5 py-3">
                         <StatusBadge status={sht.status} />
                       </td>
@@ -235,16 +225,6 @@ export const ShootsPage: React.FC = () => {
                               title="Edit Shoot"
                             >
                               <Edit3 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {sht.status !== 'Cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() => setPaymentTarget(sht)}
-                              className="p-1.5 rounded-lg text-[#183D2D] hover:bg-[#EEF3F0]"
-                              title="Record Payment"
-                            >
-                              <CreditCard className="w-4 h-4" />
                             </button>
                           )}
                           {!lockedForStaff && (
@@ -291,14 +271,6 @@ export const ShootsPage: React.FC = () => {
               }
             : undefined
         }
-        onRecordPayment={
-          detailShoot && detailShoot.status !== 'Cancelled'
-            ? () => {
-                setPaymentTarget(detailShoot);
-                setDetailShoot(null);
-              }
-            : undefined
-        }
         onArchive={
           detailShoot &&
           (isAdmin ||
@@ -309,24 +281,6 @@ export const ShootsPage: React.FC = () => {
               }
             : undefined
         }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={
-          paymentTarget
-            ? {
-                id: paymentTarget.id,
-                bookingCode: paymentTarget.bookingCode,
-                bookingType: 'SHOOT',
-                customerName: paymentTarget.customerName,
-                totalPayment: paymentTarget.totalPayment,
-                advancePayment: paymentTarget.advancePayment,
-                duePayment: paymentTarget.duePayment,
-              }
-            : null
-        }
-        onClose={() => setPaymentTarget(null)}
       />
 
       <ConfirmModal

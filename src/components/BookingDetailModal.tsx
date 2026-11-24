@@ -1,19 +1,13 @@
 import React from 'react';
-import { Archive, CreditCard, Edit3, X } from 'lucide-react';
+import { Archive, Edit3, X } from 'lucide-react';
 import { UnifiedBooking } from '../types/villa';
-import { useVillaData } from '../contexts/VillaDataContext';
-import {
-  formatColomboDate,
-  formatColomboTimestamp,
-  formatCurrency,
-} from '../utils/colomboTime';
+import { formatColomboDate, formatColomboTimestamp } from '../utils/colomboTime';
 import { StatusBadge } from './StatusBadge';
 
 interface BookingDetailModalProps {
   booking: UnifiedBooking | null;
   onClose: () => void;
   onEdit?: () => void;
-  onRecordPayment?: () => void;
   onArchive?: () => void;
 }
 
@@ -21,15 +15,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
   booking,
   onClose,
   onEdit,
-  onRecordPayment,
   onArchive,
 }) => {
-  const { payments, currency } = useVillaData();
-
   if (!booking) return null;
 
   const { category, data } = booking;
-  const bookingPayments = payments.filter((p) => p.bookingId === data.id);
 
   return (
     <div
@@ -175,73 +165,6 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
           </div>
         )}
 
-        {/* Financial Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-4 border-b border-[#E2DFD5]">
-          <div>
-            <p className="text-xs text-[#6E6C63]">Total Payment</p>
-            <p className="text-sm font-semibold text-[#1C2420] font-mono tabular-nums mt-0.5">
-              {formatCurrency(data.totalPayment, currency)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-[#6E6C63]">Total Paid</p>
-            <p className="text-sm font-semibold text-[#15803D] font-mono tabular-nums mt-0.5">
-              {formatCurrency(data.advancePayment, currency)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-[#6E6C63]">Due Balance</p>
-            <p className="text-sm font-semibold text-[#B45309] font-mono tabular-nums mt-0.5">
-              {formatCurrency(data.duePayment, currency)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-[#6E6C63]">Payment Status</p>
-            <div className="mt-0.5">
-              <StatusBadge status={data.paymentStatus} />
-            </div>
-          </div>
-        </div>
-
-        {/* Payment History */}
-        <div className="py-4">
-          <h4 className="text-xs font-semibold text-[#3D3F3A] mb-2.5">
-            Payment History ({bookingPayments.length})
-          </h4>
-          {bookingPayments.length === 0 ? (
-            <p className="text-xs text-[#6E6C63] py-3">
-              No payments recorded for this booking yet.
-            </p>
-          ) : (
-            <div className="border border-[#E2DFD5] rounded-lg overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#F7F6F2] text-[#6E6C63] border-b border-[#E2DFD5]">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Payment ID</th>
-                    <th className="px-3 py-2 font-medium">Date</th>
-                    <th className="px-3 py-2 font-medium">Method</th>
-                    <th className="px-3 py-2 font-medium text-right">Amount</th>
-                    <th className="px-3 py-2 font-medium">Recorded By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2DFD5]">
-                  {bookingPayments.map((p) => (
-                    <tr key={p.id} className={p.isVoided ? 'opacity-50 line-through' : ''}>
-                      <td className="px-3 py-2 font-mono">{p.paymentCode}</td>
-                      <td className="px-3 py-2 font-mono">{p.paymentDate}</td>
-                      <td className="px-3 py-2">{p.paymentMethod}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums font-medium">
-                        {formatCurrency(p.amount, currency)}
-                      </td>
-                      <td className="px-3 py-2">{p.recordedByName}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
         {/* Actions */}
         <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-[#E2DFD5]">
           {onArchive && !data.isArchived && (
@@ -262,16 +185,6 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
             >
               <Edit3 className="w-3.5 h-3.5" />
               Edit Details
-            </button>
-          )}
-          {onRecordPayment && !data.isArchived && (
-            <button
-              type="button"
-              onClick={onRecordPayment}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              Record Payment
             </button>
           )}
         </div>

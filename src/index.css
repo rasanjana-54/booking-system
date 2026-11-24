@@ -19,7 +19,6 @@
   --color-stone-700: #3d3f3a;
   --color-stone-900: #1c2420;
 }
-
 @layer base {
   body {
     font-family: var(--font-sans);

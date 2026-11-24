@@ -13,6 +13,7 @@ import {
   StaffMember,
   StaffRole,
   VillaSettings,
+  WhatsAppReminder,
 } from '../types/villa';
 
 export const SUPER_ADMIN_EMAIL = 'rnimsara54@gmail.com';
@@ -98,7 +99,14 @@ export async function fetchExcelBackup(): Promise<Blob> {
 export async function createStaffAccount(
   _actor: ActorContext,
   _existingStaff: StaffMember[],
-  input: { email: string; name: string; role: StaffRole; phone?: string; isActive: boolean }
+  input: {
+    email: string;
+    name: string;
+    role: StaffRole;
+    phone?: string;
+    whatsappPhone?: string;
+    isActive: boolean;
+  }
 ): Promise<void> {
   await apiClient.post('/staff', input);
   triggerDataRefresh();
@@ -108,7 +116,13 @@ export async function updateStaffAccount(
   _actor: ActorContext,
   _existingStaff: StaffMember[],
   staffId: string,
-  input: { name: string; role: StaffRole; phone?: string; isActive: boolean }
+  input: {
+    name: string;
+    role: StaffRole;
+    phone?: string;
+    whatsappPhone?: string;
+    isActive: boolean;
+  }
 ): Promise<void> {
   await apiClient.patch(`/staff/${staffId}`, input);
   triggerDataRefresh();
@@ -184,6 +198,8 @@ export async function createShootBooking(
     venueResource: ShootBooking['venueResource'];
     startTime: string;
     endTime: string;
+    paxCount: number;
+    assignedStaffId: string;
     customerName: string;
     customerPhone: string;
     totalPayment: number;
@@ -208,6 +224,8 @@ export async function updateShootBooking(
     venueResource: ShootBooking['venueResource'];
     startTime: string;
     endTime: string;
+    paxCount: number;
+    assignedStaffId: string;
     customerName: string;
     customerPhone: string;
     totalPayment: number;
@@ -217,6 +235,18 @@ export async function updateShootBooking(
 ): Promise<void> {
   await apiClient.patch(`/shoots/${shoot.id}`, input);
   triggerDataRefresh();
+}
+
+export async function fetchWhatsAppReminders(): Promise<WhatsAppReminder[]> {
+  const res = await apiClient.get<{ reminders: WhatsAppReminder[] }>('/admin/whatsapp-reminders');
+  return res.data.reminders;
+}
+
+export async function retryWhatsAppReminder(reminderId: string): Promise<WhatsAppReminder> {
+  const res = await apiClient.post<{ reminder: WhatsAppReminder }>(
+    `/admin/whatsapp-reminders/${encodeURIComponent(reminderId)}/retry`
+  );
+  return res.data.reminder;
 }
 
 // ==========================================

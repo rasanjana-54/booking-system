@@ -112,7 +112,7 @@ export const SettingsPage: React.FC = () => {
           Operational &amp; Security Settings
         </h2>
         <p className="text-sm text-[#6E6C63] mt-0.5">
-          Manage villa currency, session inactivity expiration, and data backups.
+          Manage villa details, session inactivity expiration, and data backups.
         </p>
       </div>
 
@@ -146,20 +146,6 @@ export const SettingsPage: React.FC = () => {
               disabled
               className="w-full rounded-lg border border-[#E2DFD5] bg-[#F7F6F2] px-3 py-2 text-sm font-mono text-[#6E6C63]"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-[#3D3F3A] mb-1">
-              Primary Currency
-            </label>
-            <select
-              disabled={!isAdmin}
-              {...register('currency')}
-              className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm disabled:bg-[#F7F6F2]"
-            >
-              <option value="LKR">LKR (Sri Lankan Rupee)</option>
-              <option value="USD">USD (US Dollar)</option>
-            </select>
           </div>
 
           <div>
@@ -208,7 +194,7 @@ export const SettingsPage: React.FC = () => {
             </h3>
             <p className="text-xs text-[#6E6C63] mt-1">
               Download a formatted multi-sheet Excel workbook (.xlsx) or raw JSON snapshot of
-              events, shoots, rooms, reservations, and payment ledgers.
+              events, photoshoots, rooms, and reservations.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">

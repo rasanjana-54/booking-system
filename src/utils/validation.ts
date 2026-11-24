@@ -3,6 +3,16 @@ import { z } from 'zod';
 const dateRegex = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 const timeRegex = /^[0-9]{2}:[0-9]{2}$/;
 const phoneRegex = /^[+0-9\s\-()]{5,30}$/;
+const whatsAppPhoneRegex = /^\+[1-9][0-9]{7,14}$/;
+
+export const whatsAppPhoneSchema = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(''))
+  .refine((value) => !value || whatsAppPhoneRegex.test(value), {
+    message: 'Enter a WhatsApp number in international format, e.g. +94771234567',
+  });
 
 export const venueResources = [
   'Full Estate',
@@ -69,6 +79,12 @@ export const shootBookingSchema = z
     venueResource: z.enum(venueResources),
     startTime: z.string().regex(timeRegex, 'Valid start time is required'),
     endTime: z.string().regex(timeRegex, 'Valid end time is required'),
+    paxCount: z.coerce
+      .number()
+      .int('Guest count must be a whole number')
+      .min(1, 'At least 1 guest required')
+      .max(1000, 'Maximum 1000 guests'),
+    assignedStaffId: z.string().trim().email('Select an assigned staff member'),
     customerName: z
       .string()
       .trim()
@@ -165,6 +181,7 @@ export const staffSchema = z.object({
   name: z.string().trim().min(2, 'Full name required').max(100),
   role: z.enum(['ADMIN', 'STAFF']),
   phone: z.string().trim().max(30).optional().or(z.literal('')),
+  whatsappPhone: whatsAppPhoneSchema,
   isActive: z.boolean().default(true),
 });
 

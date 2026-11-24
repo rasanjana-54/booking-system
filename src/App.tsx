@@ -12,12 +12,12 @@ import { AllBookingsPage } from './pages/AllBookingsPage';
 import { EventsPage } from './pages/EventsPage';
 import { ShootsPage } from './pages/ShootsPage';
 import { RoomsPage } from './pages/RoomsPage';
-import { PaymentsPage } from './pages/PaymentsPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { ArchivedPage } from './pages/ArchivedPage';
 import { StaffManagementPage } from './pages/StaffManagementPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { WhatsAppRemindersPage } from './pages/WhatsAppRemindersPage';
 
 const RequireStaff: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { authReady, firebaseAuthenticated } = useAuth();
@@ -38,7 +38,8 @@ const RequireStaff: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return <>{children}</>;
+  const { currentStaff } = useAuth();
+  return currentStaff?.role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 const OperationsLayout: React.FC = () => (
@@ -64,7 +65,7 @@ export default function App() {
                 <Route path="events" element={<EventsPage />} />
                 <Route path="shoots" element={<ShootsPage />} />
                 <Route path="rooms" element={<RoomsPage />} />
-                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="payments" element={<Navigate to="/bookings" replace />} />
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="archived" element={<ArchivedPage />} />
                 <Route
@@ -80,6 +81,14 @@ export default function App() {
                   element={
                     <RequireAdmin>
                       <AuditLogsPage />
+                    </RequireAdmin>
+                  }
+                />
+                <Route
+                  path="whatsapp-reminders"
+                  element={
+                    <RequireAdmin>
+                      <WhatsAppRemindersPage />
                     </RequireAdmin>
                   }
                 />

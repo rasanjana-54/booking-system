@@ -88,7 +88,7 @@ service cloud.firestore {
           'adminEmails', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'email', 'name', 'role', 'slotNumber', 'phone', 'isActive',
+          'email', 'name', 'role', 'slotNumber', 'phone', 'whatsappPhone', 'isActive',
           'uid', 'lastLoginAt', 'adminEmails', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
@@ -96,6 +96,9 @@ service cloud.firestore {
         && data.role in ['ADMIN', 'STAFF']
         && data.slotNumber is int && data.slotNumber >= 1 && data.slotNumber <= 4
         && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && (!('whatsappPhone' in data) || (data.whatsappPhone is string && (
+          data.whatsappPhone == '' || data.whatsappPhone.matches('^\\+[1-9][0-9]{7,14}$')
+        )))
         && data.isActive is bool
         && (!('uid' in data) || (data.uid is string && data.uid.size() <= 128))
         && (!('lastLoginAt' in data) || data.lastLoginAt is timestamp)
@@ -153,6 +156,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'bookingCode', 'shootDate', 'shootType', 'venueResource', 'startTime', 'endTime',
+          'paxCount', 'assignedStaffId',
           'customerName', 'customerPhone', 'totalPayment', 'advancePayment', 'duePayment',
           'paymentStatus', 'specialNotes', 'status', 'isArchived', 'archivedAt', 'archivedBy',
           'authorizedEmails', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'
@@ -163,6 +167,13 @@ service cloud.firestore {
         && isValidVenueResource(data.venueResource)
         && isValidTimeStr(data.startTime)
         && isValidTimeStr(data.endTime)
+        && (!('paxCount' in data) || (data.paxCount is int && data.paxCount >= 1 && data.paxCount <= 1000))
+        && (!('assignedStaffId' in data) || (
+          data.assignedStaffId is string
+          && data.assignedStaffId.size() >= 5
+          && data.assignedStaffId.size() <= 120
+          && data.assignedStaffId.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        ))
         && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 120
         && data.customerPhone is string && data.customerPhone.size() >= 5 && data.customerPhone.size() <= 30
         && data.totalPayment is number && data.totalPayment >= 0
@@ -362,7 +373,8 @@ service cloud.firestore {
           (
             isAdmin()
             && incoming().diff(existing()).affectedKeys().hasOnly([
-              'name', 'role', 'slotNumber', 'phone', 'isActive', 'adminEmails', 'updatedAt', 'uid', 'lastLoginAt'
+              'name', 'role', 'slotNumber', 'phone', 'whatsappPhone', 'isActive',
+              'adminEmails', 'updatedAt', 'uid', 'lastLoginAt'
             ])
           )
           || (
@@ -453,7 +465,7 @@ service cloud.firestore {
                 incoming().isArchived == false
                 && incoming().diff(existing()).affectedKeys().hasOnly([
                   'shootDate', 'shootType', 'venueResource', 'startTime', 'endTime',
-                  'customerName', 'customerPhone', 'totalPayment', 'advancePayment',
+                  'paxCount', 'assignedStaffId', 'customerName', 'customerPhone', 'totalPayment', 'advancePayment',
                   'duePayment', 'paymentStatus', 'specialNotes', 'status', 'authorizedEmails', 'updatedAt'
                 ])
               )

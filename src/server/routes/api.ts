@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { z } from 'zod';
 import {
@@ -47,9 +48,29 @@ import type {
   StaffMember,
   StaffRole,
   VillaSettings,
+  WhatsAppReminder,
 } from '../../types/villa.ts';
+import {
+  applyWhatsAppWebhookStatus,
+  FirestoreReminderStore,
+  MetaWhatsAppSender,
+  ReminderRequestError,
+  retryFailedPhotoshootReminder,
+  runWeeklyPhotoshootReminders,
+} from '../whatsappReminders.ts';
 
 export const apiRouter = Router();
+const reminderStore = new FirestoreReminderStore();
+const whatsAppSender = new MetaWhatsAppSender();
+
+function secretsMatch(candidate: string, expected: string): boolean {
+  const candidateBuffer = Buffer.from(candidate);
+  const expectedBuffer = Buffer.from(expected);
+  return (
+    candidateBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(candidateBuffer, expectedBuffer)
+  );
+}
 
 function generateDocId(prefix: string): string {
   const rand = Math.random().toString(36).slice(2, 8);
@@ -151,8 +172,140 @@ apiRouter.get('/health', (_req, res) => {
   });
 });
 
+apiRouter.get('/webhooks/whatsapp', (req, res) => {
+  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  if (!verifyToken) {
+    res.status(503).send('WhatsApp webhook verification is not configured.');
+    return;
+  }
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (
+    mode === 'subscribe' &&
+    typeof token === 'string' &&
+    secretsMatch(token, verifyToken) &&
+    typeof challenge === 'string'
+  ) {
+    res.type('text/plain').send(challenge);
+    return;
+  }
+  res.sendStatus(403);
+});
+
+apiRouter.post('/webhooks/whatsapp', async (req, res) => {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  const signature = req.header('x-hub-signature-256');
+  const rawBody = (req as typeof req & { rawBody?: Buffer }).rawBody;
+  if (!appSecret) {
+    res.status(503).json({ error: 'WhatsApp webhook signature validation is not configured.' });
+    return;
+  }
+  if (!signature || !rawBody) {
+    res.status(401).json({ error: 'WhatsApp webhook signature is missing.' });
+    return;
+  }
+  const expectedSignature = `sha256=${createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
+  if (!secretsMatch(signature, expectedSignature)) {
+    res.status(401).json({ error: 'WhatsApp webhook signature is invalid.' });
+    return;
+  }
+
+  try {
+    const body = req.body as {
+      entry?: Array<{
+        changes?: Array<{
+          value?: {
+            statuses?: Array<{
+              id?: string;
+              status?: string;
+              errors?: Array<{ title?: string; details?: string; message?: string }>;
+            }>;
+          };
+        }>;
+      }>;
+    };
+    const statuses =
+      body.entry?.flatMap((entry) =>
+        entry.changes?.flatMap((change) => change.value?.statuses || []) || []
+      ) || [];
+
+    for (const status of statuses) {
+      if (!status.id || !status.status) continue;
+      const failureReason = status.errors
+        ?.map((error) => error.details || error.title || error.message)
+        .filter(Boolean)
+        .join('; ');
+      await applyWhatsAppWebhookStatus(
+        reminderStore,
+        status.id,
+        status.status,
+        failureReason
+      );
+    }
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('WhatsApp webhook status update failed', error);
+    res.status(500).json({ error: 'Unable to save WhatsApp delivery status.' });
+  }
+});
+
+apiRouter.get('/cron/whatsapp-reminders', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    res.status(503).json({ error: 'Scheduled reminder authorization is not configured.' });
+    return;
+  }
+  const authorization = req.header('authorization') || '';
+  if (!secretsMatch(authorization, `Bearer ${cronSecret}`)) {
+    res.status(401).json({ error: 'Unauthorized scheduled reminder request.' });
+    return;
+  }
+  try {
+    const summary = await runWeeklyPhotoshootReminders(reminderStore, whatsAppSender);
+    res.json(summary);
+  } catch (error) {
+    console.error('Weekly WhatsApp reminder job failed', error);
+    res.status(500).json({ error: 'Weekly WhatsApp reminder job failed.' });
+  }
+});
+
 // Protect all endpoints below with Firebase ID token + active staff check
 apiRouter.use(requireStaffAuth);
+
+apiRouter.get(
+  '/admin/whatsapp-reminders',
+  requireAdminRole,
+  async (_req: AuthenticatedRequest, res) => {
+    try {
+      const reminders: WhatsAppReminder[] = await reminderStore.listReminders();
+      res.json({ reminders });
+    } catch (error) {
+      handleRouteError(res, error, 'Failed to load WhatsApp reminder history.');
+    }
+  }
+);
+
+apiRouter.post(
+  '/admin/whatsapp-reminders/:id/retry',
+  requireAdminRole,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const reminder = await retryFailedPhotoshootReminder(
+        req.params.id,
+        reminderStore,
+        whatsAppSender
+      );
+      res.json({ reminder });
+    } catch (error) {
+      if (error instanceof ReminderRequestError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      handleRouteError(res, error, 'Failed to retry WhatsApp reminder.');
+    }
+  }
+);
 
 // ==========================================
 // AUTHENTICATION & SESSION BOOTSTRAP
@@ -239,68 +392,78 @@ apiRouter.post('/auth/session', async (req: AuthenticatedRequest, res) => {
         });
       }
 
-      const existingRooms = await fsQueryArrayContains<Omit<RoomType, 'id'>>(
-        idToken,
-        'room_types',
-        'authorizedEmails',
-        email
-      );
-      if (existingRooms.length === 0) {
-        const suites = [
-          {
-            id: 'suite_master_pavilion',
-            roomCode: 'RM-01',
-            name: 'The Master Pavilion',
-            description:
-              'Flagship teakwood four-poster pavilion with private terrace, travertine ensuite, and panoramic canopy views.',
-            maxCapacity: 2,
-            price: 85000,
-            status: 'Available',
-            imageUrl: '/src/assets/images/room_master_pavilion_1795247324196.jpg',
-          },
-          {
-            id: 'suite_garden_courtyard',
-            roomCode: 'RM-02',
-            name: 'Royal Garden Suite',
-            description:
-              'Tranquil ground-level sanctuary surrounded by walled tropical ferns, timber beams, and private daybed alcove.',
-            maxCapacity: 3,
-            price: 62000,
-            status: 'Available',
-            imageUrl: '/src/assets/images/room_garden_suite_1795247325311.jpg',
-          },
-          {
-            id: 'suite_emerald_cabana',
-            roomCode: 'RM-03',
-            name: 'Emerald Pool Cabana',
-            description:
-              'Intimate infinity-edge poolside cabana crafted in sandstone and Burmese teak for couples and private retreats.',
-            maxCapacity: 2,
-            price: 74000,
-            status: 'Available',
-            imageUrl: '/src/assets/images/room_poolside_cabana_1795247324983.jpg',
-          },
-        ];
+      const defaultRooms = [
+        {
+          id: 'suite_king_room',
+          roomCode: 'RM-01',
+          name: 'King Room',
+          description: 'King room',
+          maxCapacity: 2,
+          price: 50000,
+          status: 'Available',
+        },
+        {
+          id: 'suite_queen_room',
+          roomCode: 'RM-02',
+          name: 'Queen Room',
+          description: 'Queen room',
+          maxCapacity: 2,
+          price: 50000,
+          status: 'Available',
+        },
+      ] as const;
 
-        for (const s of suites) {
+      for (const room of defaultRooms) {
+        const existing = await fsGetDoc<Omit<RoomType, 'id'>>(
+          idToken,
+          'room_types',
+          room.id
+        );
+        if (!existing) {
           ops.push({
             type: 'set',
             collection: 'room_types',
-            docId: s.id,
+            docId: room.id,
             data: {
-              roomCode: s.roomCode,
-              name: s.name,
-              description: s.description,
-              maxCapacity: s.maxCapacity,
-              price: s.price,
-              status: s.status,
-              imageUrl: s.imageUrl,
+              roomCode: room.roomCode,
+              name: room.name,
+              description: room.description,
+              maxCapacity: room.maxCapacity,
+              price: room.price,
+              status: room.status,
               isArchived: false,
               authorizedEmails: [email],
               createdBy: uid,
               createdAt: SERVER_TIMESTAMP,
               updatedAt: SERVER_TIMESTAMP,
             },
+          });
+        }
+      }
+
+      const legacyRooms = [
+        { id: 'suite_master_pavilion', name: 'The Master Pavilion' },
+        { id: 'suite_garden_courtyard', name: 'Royal Garden Suite' },
+        { id: 'suite_emerald_cabana', name: 'Emerald Pool Cabana' },
+      ];
+      const existingLegacyRooms = await Promise.all(
+        legacyRooms.map(async (room) => ({
+          ...room,
+          existing: await fsGetDoc<Omit<RoomType, 'id'>>(idToken, 'room_types', room.id),
+        }))
+      );
+      for (const { id, name, existing } of existingLegacyRooms) {
+        if (existing?.name === name && !existing.isArchived) {
+          ops.push({
+            type: 'update',
+            collection: 'room_types',
+            docId: id,
+            data: {
+              isArchived: true,
+              updatedBy: uid,
+              updatedAt: SERVER_TIMESTAMP,
+            },
+            updateFields: ['isArchived', 'updatedBy', 'updatedAt'],
           });
         }
       }
@@ -682,6 +845,21 @@ apiRouter.post('/shoots', async (req: AuthenticatedRequest, res) => {
     const idToken = req.idToken!;
     const staff = req.staff!;
     const emailLower = staff.email.toLowerCase();
+    const assignedStaffEmail = input.assignedStaffId.trim().toLowerCase();
+
+    if (staff.role !== 'ADMIN' && assignedStaffEmail !== emailLower) {
+      res.status(403).json({ error: 'Staff members may only assign photoshoots to themselves.' });
+      return;
+    }
+    const assignedStaff = await fsGetDoc<Omit<StaffMember, 'id'>>(
+      idToken,
+      'staff',
+      assignedStaffEmail
+    );
+    if (!assignedStaff?.isActive) {
+      res.status(400).json({ error: 'Select an active authorized staff member.' });
+      return;
+    }
 
     if (input.status !== 'Cancelled') {
       const [events, shoots, blocks] = await Promise.all([
@@ -725,6 +903,8 @@ apiRouter.post('/shoots', async (req: AuthenticatedRequest, res) => {
       venueResource: input.venueResource,
       startTime: input.startTime,
       endTime: input.endTime,
+      paxCount: Number(input.paxCount),
+      assignedStaffId: assignedStaffEmail,
       customerName: input.customerName.trim(),
       customerPhone: input.customerPhone.trim(),
       totalPayment: Number(input.totalPayment),
@@ -798,6 +978,8 @@ const shootUpdateSchema = z
     venueResource: shootBookingSchema.shape.venueResource,
     startTime: shootBookingSchema.shape.startTime,
     endTime: shootBookingSchema.shape.endTime,
+    paxCount: shootBookingSchema.shape.paxCount,
+    assignedStaffId: shootBookingSchema.shape.assignedStaffId,
     customerName: shootBookingSchema.shape.customerName,
     customerPhone: shootBookingSchema.shape.customerPhone,
     totalPayment: shootBookingSchema.shape.totalPayment,
@@ -816,6 +998,21 @@ apiRouter.patch('/shoots/:id', async (req: AuthenticatedRequest, res) => {
     const idToken = req.idToken!;
     const staff = req.staff!;
     const emailLower = staff.email.toLowerCase();
+    const assignedStaffEmail = input.assignedStaffId.trim().toLowerCase();
+
+    if (staff.role !== 'ADMIN' && assignedStaffEmail !== emailLower) {
+      res.status(403).json({ error: 'Staff members may only assign photoshoots to themselves.' });
+      return;
+    }
+    const assignedStaff = await fsGetDoc<Omit<StaffMember, 'id'>>(
+      idToken,
+      'staff',
+      assignedStaffEmail
+    );
+    if (!assignedStaff?.isActive) {
+      res.status(400).json({ error: 'Select an active authorized staff member.' });
+      return;
+    }
 
     const existing = await fsGetDoc<Omit<ShootBooking, 'id'>>(idToken, 'shoots', shootId);
     if (!existing) {
@@ -863,6 +1060,8 @@ apiRouter.patch('/shoots/:id', async (req: AuthenticatedRequest, res) => {
       venueResource: input.venueResource,
       startTime: input.startTime,
       endTime: input.endTime,
+      paxCount: Number(input.paxCount),
+      assignedStaffId: assignedStaffEmail,
       customerName: input.customerName.trim(),
       customerPhone: input.customerPhone.trim(),
       totalPayment: Number(input.totalPayment),
@@ -1904,6 +2103,9 @@ apiRouter.post('/staff', requireAdminRole, async (req: AuthenticatedRequest, res
     if (input.phone && input.phone.trim()) {
       payload.phone = input.phone.trim();
     }
+    if (input.whatsappPhone && input.whatsappPhone.trim()) {
+      payload.whatsappPhone = input.whatsappPhone.trim();
+    }
 
     const newStaffRecord: StaffMember = {
       id: key,
@@ -1911,6 +2113,7 @@ apiRouter.post('/staff', requireAdminRole, async (req: AuthenticatedRequest, res
       name: input.name.trim(),
       role: input.role,
       slotNumber: nextSlot,
+      whatsappPhone: input.whatsappPhone?.trim() || undefined,
       isActive: input.isActive,
       adminEmails,
       createdBy: req.uid!,
@@ -1947,6 +2150,7 @@ const staffUpdateSchema = z.object({
   name: staffSchema.shape.name,
   role: staffSchema.shape.role,
   phone: staffSchema.shape.phone,
+  whatsappPhone: staffSchema.shape.whatsappPhone,
   isActive: staffSchema.shape.isActive,
 });
 
@@ -1978,7 +2182,15 @@ apiRouter.patch('/staff/:id', requireAdminRole, async (req: AuthenticatedRequest
     }
 
     const updatedList = existingStaff.map((s) =>
-      s.id === staffId ? { ...s, name: input.name, role: input.role, isActive: input.isActive } : s
+      s.id === staffId
+        ? {
+            ...s,
+            name: input.name,
+            role: input.role,
+            isActive: input.isActive,
+            whatsappPhone: input.whatsappPhone?.trim() || '',
+          }
+        : s
     );
     const adminEmails = uniqueEmails(
       updatedList.filter((s) => s.isActive && s.role === 'ADMIN').map((s) => s.email),
@@ -1990,6 +2202,7 @@ apiRouter.patch('/staff/:id', requireAdminRole, async (req: AuthenticatedRequest
       role: input.role,
       isActive: input.isActive,
       phone: input.phone?.trim() || '',
+      whatsappPhone: input.whatsappPhone?.trim() || '',
       adminEmails,
       updatedAt: SERVER_TIMESTAMP,
     };
@@ -2001,7 +2214,7 @@ apiRouter.patch('/staff/:id', requireAdminRole, async (req: AuthenticatedRequest
         collection: 'staff',
         docId: staffId,
         data: updatePayload,
-        updateFields: ['name', 'role', 'isActive', 'phone', 'adminEmails'],
+        updateFields: ['name', 'role', 'isActive', 'phone', 'whatsappPhone', 'adminEmails'],
       },
       ...syncOps.filter((op) => !(op.collection === 'staff' && op.docId === staffId)),
       buildAuditOp({

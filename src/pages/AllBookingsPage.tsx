@@ -1,21 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpDown, CreditCard, Eye, Search } from 'lucide-react';
+import { ArrowUpDown, Eye, Search } from 'lucide-react';
 import { useVillaData } from '../contexts/VillaDataContext';
-import { BookingCategory, PaymentStatus, UnifiedBooking } from '../types/villa';
-import { formatColomboDate, formatCurrency } from '../utils/colomboTime';
+import { BookingCategory, UnifiedBooking } from '../types/villa';
+import { formatColomboDate } from '../utils/colomboTime';
 import { StatusBadge } from '../components/StatusBadge';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 
-type SortField = 'date' | 'customer' | 'total' | 'due';
+type SortField = 'date' | 'customer';
 
 export const AllBookingsPage: React.FC = () => {
-  const { events, shoots, roomBookings, roomTypes, currency } = useVillaData();
+  const { events, shoots, roomBookings, roomTypes } = useVillaData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | BookingCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'ALL' | PaymentStatus>('ALL');
   const [roomTypeFilter, setRoomTypeFilter] = useState('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -25,15 +23,6 @@ export const AllBookingsPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
 
   const [detailBooking, setDetailBooking] = useState<UnifiedBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<{
-    id: string;
-    bookingCode: string;
-    bookingType: BookingCategory;
-    customerName: string;
-    totalPayment: number;
-    advancePayment: number;
-    duePayment: number;
-  } | null>(null);
 
   const combined = useMemo(() => {
     const list: {
@@ -71,7 +60,6 @@ export const AllBookingsPage: React.FC = () => {
       const d = entry.item.data;
       if (categoryFilter !== 'ALL' && entry.item.category !== categoryFilter) return false;
       if (statusFilter !== 'ALL' && d.status !== statusFilter) return false;
-      if (paymentStatusFilter !== 'ALL' && d.paymentStatus !== paymentStatusFilter) return false;
       if (roomTypeFilter !== 'ALL' && entry.roomTypeId !== roomTypeFilter) return false;
       if (dateFrom && entry.primaryDate < dateFrom) return false;
       if (dateTo && entry.primaryDate > dateTo) return false;
@@ -86,12 +74,8 @@ export const AllBookingsPage: React.FC = () => {
       let cmp = 0;
       if (sortField === 'date') {
         cmp = a.primaryDate.localeCompare(b.primaryDate);
-      } else if (sortField === 'customer') {
+      } else {
         cmp = a.item.data.customerName.localeCompare(b.item.data.customerName);
-      } else if (sortField === 'total') {
-        cmp = a.item.data.totalPayment - b.item.data.totalPayment;
-      } else if (sortField === 'due') {
-        cmp = a.item.data.duePayment - b.item.data.duePayment;
       }
       return sortAsc ? cmp : -cmp;
     });
@@ -104,7 +88,6 @@ export const AllBookingsPage: React.FC = () => {
     searchTerm,
     categoryFilter,
     statusFilter,
-    paymentStatusFilter,
     roomTypeFilter,
     dateFrom,
     dateTo,
@@ -193,23 +176,6 @@ export const AllBookingsPage: React.FC = () => {
 
           <div className="md:col-span-2">
             <select
-              value={paymentStatusFilter}
-              onChange={(e) => {
-                setPaymentStatusFilter(e.target.value as 'ALL' | PaymentStatus);
-                setPage(1);
-              }}
-              className="w-full rounded-lg border border-[#CDC9BC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#183D2D]"
-            >
-              <option value="ALL">All Payment Status</option>
-              <option value="UNPAID">Unpaid</option>
-              <option value="PARTIALLY_PAID">Partially Paid</option>
-              <option value="FULLY_PAID">Fully Paid</option>
-              <option value="OVERPAID">Overpaid</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <select
               value={roomTypeFilter}
               onChange={(e) => {
                 setRoomTypeFilter(e.target.value);
@@ -252,7 +218,6 @@ export const AllBookingsPage: React.FC = () => {
             {(searchTerm ||
               categoryFilter !== 'ALL' ||
               statusFilter !== 'ALL' ||
-              paymentStatusFilter !== 'ALL' ||
               roomTypeFilter !== 'ALL' ||
               dateFrom ||
               dateTo) && (
@@ -262,7 +227,6 @@ export const AllBookingsPage: React.FC = () => {
                   setSearchTerm('');
                   setCategoryFilter('ALL');
                   setStatusFilter('ALL');
-                  setPaymentStatusFilter('ALL');
                   setRoomTypeFilter('ALL');
                   setDateFrom('');
                   setDateTo('');
@@ -315,26 +279,7 @@ export const AllBookingsPage: React.FC = () => {
                       Date <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="px-5 py-3 font-medium text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort('total')}
-                      className="inline-flex items-center gap-1 hover:text-[#1C2420]"
-                    >
-                      Total <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
-                  <th className="px-5 py-3 font-medium text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort('due')}
-                      className="inline-flex items-center gap-1 hover:text-[#1C2420]"
-                    >
-                      Due <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
                   <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Payment</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -357,49 +302,18 @@ export const AllBookingsPage: React.FC = () => {
                       <td className="px-5 py-3 text-xs font-mono">
                         {formatColomboDate(primaryDate)}
                       </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
-                        {formatCurrency(d.totalPayment, currency)}
-                      </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs font-medium text-[#B45309]">
-                        {formatCurrency(d.duePayment, currency)}
-                      </td>
                       <td className="px-5 py-3">
                         <StatusBadge status={d.status} />
                       </td>
-                      <td className="px-5 py-3">
-                        <StatusBadge status={d.paymentStatus} />
-                      </td>
                       <td className="px-5 py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDetailBooking(item)}
-                            className="p-1.5 rounded-lg text-[#3D3F3A] hover:bg-[#EFEDE6]"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {d.status !== 'Cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPaymentTarget({
-                                  id: d.id,
-                                  bookingCode: d.bookingCode,
-                                  bookingType: item.category,
-                                  customerName: d.customerName,
-                                  totalPayment: d.totalPayment,
-                                  advancePayment: d.advancePayment,
-                                  duePayment: d.duePayment,
-                                })
-                              }
-                              className="p-1.5 rounded-lg text-[#183D2D] hover:bg-[#EEF3F0]"
-                              title="Record Payment"
-                            >
-                              <CreditCard className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDetailBooking(item)}
+                          className="p-1.5 rounded-lg text-[#3D3F3A] hover:bg-[#EFEDE6]"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -453,29 +367,6 @@ export const AllBookingsPage: React.FC = () => {
       <BookingDetailModal
         booking={detailBooking}
         onClose={() => setDetailBooking(null)}
-        onRecordPayment={
-          detailBooking
-            ? () => {
-                const d = detailBooking.data;
-                setPaymentTarget({
-                  id: d.id,
-                  bookingCode: d.bookingCode,
-                  bookingType: detailBooking.category,
-                  customerName: d.customerName,
-                  totalPayment: d.totalPayment,
-                  advancePayment: d.advancePayment,
-                  duePayment: d.duePayment,
-                });
-                setDetailBooking(null);
-              }
-            : undefined
-        }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={paymentTarget}
-        onClose={() => setPaymentTarget(null)}
       />
     </div>
   );

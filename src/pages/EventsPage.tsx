@@ -1,20 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { Archive, CreditCard, Edit3, Eye, Plus, Search } from 'lucide-react';
+import { Archive, Edit3, Eye, Plus, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useVillaData } from '../contexts/VillaDataContext';
 import { useToast } from '../contexts/ToastContext';
 import { EventBooking } from '../types/villa';
-import { formatColomboDate, formatCurrency } from '../utils/colomboTime';
+import { formatColomboDate } from '../utils/colomboTime';
 import { archiveBooking } from '../services/villaService';
 import { StatusBadge } from '../components/StatusBadge';
 import { EventFormModal } from '../components/EventFormModal';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export const EventsPage: React.FC = () => {
   const { currentStaff, buildActorContext } = useAuth();
-  const { events, currency, authorizedEmails, adminEmails } = useVillaData();
+  const { events, authorizedEmails, adminEmails } = useVillaData();
   const { notify } = useToast();
 
   const [search, setSearch] = useState('');
@@ -25,7 +24,6 @@ export const EventsPage: React.FC = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventBooking | null>(null);
   const [detailEvent, setDetailEvent] = useState<EventBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<EventBooking | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<EventBooking | null>(null);
   const [archiving, setArchiving] = useState(false);
 
@@ -154,7 +152,7 @@ export const EventsPage: React.FC = () => {
           <div className="p-12 text-center">
             <p className="text-sm font-medium text-[#1C2420]">No event bookings found</p>
             <p className="text-xs text-[#6E6C63] mt-1 mb-4">
-              Add a new event booking to start managing schedules and payments.
+              Add a new event booking to start managing schedules.
             </p>
             <button
               type="button"
@@ -177,8 +175,6 @@ export const EventsPage: React.FC = () => {
                   <th className="px-5 py-3 font-medium">Date &amp; Time</th>
                   <th className="px-5 py-3 font-medium">Customer</th>
                   <th className="px-5 py-3 font-medium text-right">Pax</th>
-                  <th className="px-5 py-3 font-medium text-right">Total</th>
-                  <th className="px-5 py-3 font-medium text-right">Due</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
@@ -209,12 +205,6 @@ export const EventsPage: React.FC = () => {
                       <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
                         {evt.paxCount}
                       </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs">
-                        {formatCurrency(evt.totalPayment, currency)}
-                      </td>
-                      <td className="px-5 py-3 text-right font-mono tabular-nums text-xs font-medium text-[#B45309]">
-                        {formatCurrency(evt.duePayment, currency)}
-                      </td>
                       <td className="px-5 py-3">
                         <StatusBadge status={evt.status} />
                       </td>
@@ -239,16 +229,6 @@ export const EventsPage: React.FC = () => {
                               title="Edit Event"
                             >
                               <Edit3 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {evt.status !== 'Cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() => setPaymentTarget(evt)}
-                              className="p-1.5 rounded-lg text-[#183D2D] hover:bg-[#EEF3F0]"
-                              title="Record Payment"
-                            >
-                              <CreditCard className="w-4 h-4" />
                             </button>
                           )}
                           {!lockedForStaff && (
@@ -295,14 +275,6 @@ export const EventsPage: React.FC = () => {
               }
             : undefined
         }
-        onRecordPayment={
-          detailEvent && detailEvent.status !== 'Cancelled'
-            ? () => {
-                setPaymentTarget(detailEvent);
-                setDetailEvent(null);
-              }
-            : undefined
-        }
         onArchive={
           detailEvent &&
           (isAdmin ||
@@ -313,24 +285,6 @@ export const EventsPage: React.FC = () => {
               }
             : undefined
         }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={
-          paymentTarget
-            ? {
-                id: paymentTarget.id,
-                bookingCode: paymentTarget.bookingCode,
-                bookingType: 'EVENT',
-                customerName: paymentTarget.customerName,
-                totalPayment: paymentTarget.totalPayment,
-                advancePayment: paymentTarget.advancePayment,
-                duePayment: paymentTarget.duePayment,
-              }
-            : null
-        }
-        onClose={() => setPaymentTarget(null)}
       />
 
       <ConfirmModal

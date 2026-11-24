@@ -45,8 +45,18 @@
       "destination": "/"
     },
     {
+      "source": "/whatsapp-reminders",
+      "destination": "/"
+    },
+    {
       "source": "/settings",
       "destination": "/"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/whatsapp-reminders",
+      "schedule": "30 6 * * 0"
     }
   ]
 }

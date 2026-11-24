@@ -2,12 +2,18 @@ import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  BedDouble,
+  Camera,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Lock,
+  PartyPopper,
+  Plus,
   Trash2,
   X,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth } from '../contexts/AuthContext';
 import { useVillaData } from '../contexts/VillaDataContext';
@@ -21,7 +27,6 @@ import {
 } from '../utils/colomboTime';
 import { createBlockedSchedule, deleteBlockedSchedule } from '../services/villaService';
 import { BookingDetailModal } from '../components/BookingDetailModal';
-import { PaymentModal } from '../components/PaymentModal';
 
 type CalendarView = 'month' | 'week' | 'day';
 type BlockFormValues = z.infer<typeof blockedScheduleSchema>;
@@ -58,21 +63,14 @@ export const CalendarPage: React.FC = () => {
 
   const [view, setView] = useState<CalendarView>('month');
   const [anchorDate, setAnchorDate] = useState(getColomboDateStr());
+  const [selectedDate, setSelectedDate] = useState(getColomboDateStr());
   const [showEvents, setShowEvents] = useState(true);
   const [showShoots, setShowShoots] = useState(true);
   const [showRooms, setShowRooms] = useState(true);
   const [showBlocks, setShowBlocks] = useState(true);
+  const [newBookingMenuOpen, setNewBookingMenuOpen] = useState(false);
 
   const [detailBooking, setDetailBooking] = useState<UnifiedBooking | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<{
-    id: string;
-    bookingCode: string;
-    bookingType: 'EVENT' | 'SHOOT' | 'ROOM';
-    customerName: string;
-    totalPayment: number;
-    advancePayment: number;
-    duePayment: number;
-  } | null>(null);
 
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [submittingBlock, setSubmittingBlock] = useState(false);
@@ -174,15 +172,18 @@ export const CalendarPage: React.FC = () => {
 
   // Navigation math
   const navigate = (dir: -1 | 1) => {
+    let nextDate = anchorDate;
     if (view === 'day') {
-      setAnchorDate(addDaysToDateStr(anchorDate, dir));
+      nextDate = addDaysToDateStr(anchorDate, dir);
     } else if (view === 'week') {
-      setAnchorDate(addDaysToDateStr(anchorDate, dir * 7));
+      nextDate = addDaysToDateStr(anchorDate, dir * 7);
     } else {
       const [y, m] = anchorDate.split('-').map(Number);
       const dt = new Date(Date.UTC(y, m - 1 + dir, 1, 12, 0, 0));
-      setAnchorDate(dt.toISOString().slice(0, 10));
+      nextDate = dt.toISOString().slice(0, 10);
     }
+    setAnchorDate(nextDate);
+    if (view === 'month') setSelectedDate(nextDate);
   };
 
   const monthDays = useMemo(() => {
@@ -245,6 +246,43 @@ export const CalendarPage: React.FC = () => {
   };
 
   const todayStr = getColomboDateStr();
+  const monthStart = `${anchorDate.slice(0, 7)}-01`;
+  const [monthYear, monthNumber] = anchorDate.split('-').map(Number);
+  const monthEnd = new Date(Date.UTC(monthYear, monthNumber, 0, 12, 0, 0))
+    .toISOString()
+    .slice(0, 10);
+  const selectedDayItems = getItemsForDate(selectedDate);
+  const monthlySummary = {
+    events: events.filter(
+      (item) =>
+        !item.isArchived &&
+        item.status !== 'Cancelled' &&
+        item.eventDate >= monthStart &&
+        item.eventDate <= monthEnd
+    ).length,
+    shoots: shoots.filter(
+      (item) =>
+        !item.isArchived &&
+        item.status !== 'Cancelled' &&
+        item.shootDate >= monthStart &&
+        item.shootDate <= monthEnd
+    ).length,
+    rooms: roomBookings.filter(
+      (item) =>
+        !item.isArchived &&
+        item.status !== 'Cancelled' &&
+        item.checkInDate <= monthEnd &&
+        item.checkOutDate >= monthStart
+    ).length,
+  };
+  const totalMonthlyBookings =
+    monthlySummary.events + monthlySummary.shoots + monthlySummary.rooms;
+  const summaryCards = [
+    { label: 'Total Bookings', value: totalMonthlyBookings, icon: CalendarDays, color: 'bg-[#EEF3F0]' },
+    { label: 'Event Bookings', value: monthlySummary.events, icon: PartyPopper, color: 'bg-[#FEF7EC]' },
+    { label: 'Photoshoot Bookings', value: monthlySummary.shoots, icon: Camera, color: 'bg-[#EFF6FF]' },
+    { label: 'Room Bookings', value: monthlySummary.rooms, icon: BedDouble, color: 'bg-[#F3EFF8]' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -255,10 +293,10 @@ export const CalendarPage: React.FC = () => {
             className="text-2xl sm:text-3xl font-semibold text-[#1C2420]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            Centralized Villa Calendar
+            Booking Calendar
           </h2>
           <p className="text-sm text-[#6E6C63] mt-0.5">
-            Daily, weekly, and monthly overview across Events, Photoshoots, Rooms, and Blocks.
+            Manage all villa bookings in one calendar.
           </p>
         </div>
 
@@ -280,30 +318,65 @@ export const CalendarPage: React.FC = () => {
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              reset({
-                scope: 'FULL_VILLA',
-                roomTypeId: roomTypes[0]?.id || '',
-                startDate: anchorDate,
-                endDate: anchorDate,
-                startTime: '00:00',
-                endTime: '23:59',
-                reason: '',
-              });
-              setBlockModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors whitespace-nowrap"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Block Dates / Times</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNewBookingMenuOpen((open) => !open)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors whitespace-nowrap"
+                aria-expanded={newBookingMenuOpen}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Booking</span>
+              </button>
+              {newBookingMenuOpen && (
+                <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-xl border border-[#E2DFD5] bg-white p-1.5 shadow-lg">
+                  {[
+                    { to: '/events', label: 'Event Booking', icon: PartyPopper },
+                    { to: '/shoots', label: 'Photoshoot Booking', icon: Camera },
+                    { to: '/rooms', label: 'Room Booking', icon: BedDouble },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setNewBookingMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-[#3D3F3A] hover:bg-[#F7F6F2]"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-[#183D2D]" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                reset({
+                  scope: 'FULL_VILLA',
+                  roomTypeId: roomTypes[0]?.id || '',
+                  startDate: anchorDate,
+                  endDate: anchorDate,
+                  startTime: '00:00',
+                  endTime: '23:59',
+                  reason: '',
+                });
+                setBlockModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-[#183D2D] bg-white border border-[#E2DFD5] hover:bg-[#F7F6F2] rounded-lg transition-colors whitespace-nowrap"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Block Dates</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Controls & Category Toggles */}
-      <div className="bg-white border border-[#E2DFD5] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border border-[#E2DFD5] rounded-xl p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -315,7 +388,10 @@ export const CalendarPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setAnchorDate(todayStr)}
+            onClick={() => {
+              setAnchorDate(todayStr);
+              setSelectedDate(todayStr);
+            }}
             className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E2DFD5] hover:bg-[#F7F6F2]"
           >
             Today
@@ -333,115 +409,214 @@ export const CalendarPage: React.FC = () => {
           </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showEvents}
-              onChange={(e) => setShowEvents(e.target.checked)}
-              className="rounded"
-            />
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#183D2D]" />
-            <span>Events</span>
-          </label>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showShoots}
-              onChange={(e) => setShowShoots(e.target.checked)}
-              className="rounded"
-            />
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#B45309]" />
-            <span>Shoots</span>
-          </label>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showRooms}
-              onChange={(e) => setShowRooms(e.target.checked)}
-              className="rounded"
-            />
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#1D4ED8]" />
-            <span>Rooms</span>
-          </label>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showBlocks}
-              onChange={(e) => setShowBlocks(e.target.checked)}
-              className="rounded"
-            />
-            <span className="w-2.5 h-2.5 rounded-xs bg-[#B91C1C]" />
-            <span>Blocked</span>
-          </label>
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <button
+            type="button"
+            aria-pressed={showEvents && showShoots && showRooms}
+            onClick={() => {
+              setShowEvents(true);
+              setShowShoots(true);
+              setShowRooms(true);
+            }}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              showEvents && showShoots && showRooms
+                ? 'bg-[#183D2D] text-white'
+                : 'bg-[#F7F6F2] text-[#3D3F3A] hover:bg-[#EFEDE6]'
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            aria-pressed={showEvents}
+            onClick={() => setShowEvents((value) => !value)}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              showEvents
+                ? 'bg-[#EEF3F0] text-[#183D2D]'
+                : 'bg-[#F7F6F2] text-[#6E6C63] hover:bg-[#EFEDE6]'
+            }`}
+          >
+            Events
+          </button>
+          <button
+            type="button"
+            aria-pressed={showShoots}
+            onClick={() => setShowShoots((value) => !value)}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              showShoots
+                ? 'bg-[#FEF7EC] text-[#B45309]'
+                : 'bg-[#F7F6F2] text-[#6E6C63] hover:bg-[#EFEDE6]'
+            }`}
+          >
+            Photoshoots
+          </button>
+          <button
+            type="button"
+            aria-pressed={showRooms}
+            onClick={() => setShowRooms((value) => !value)}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              showRooms
+                ? 'bg-[#EFF6FF] text-[#1D4ED8]'
+                : 'bg-[#F7F6F2] text-[#6E6C63] hover:bg-[#EFEDE6]'
+            }`}
+          >
+            Rooms
+          </button>
+          <button
+            type="button"
+            aria-pressed={showBlocks}
+            onClick={() => setShowBlocks((value) => !value)}
+            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+              showBlocks
+                ? 'bg-[#FEF2F2] text-[#B91C1C]'
+                : 'bg-[#F7F6F2] text-[#6E6C63] hover:bg-[#EFEDE6]'
+            }`}
+          >
+            Blocked
+          </button>
         </div>
       </div>
 
       {/* MONTHLY VIEW */}
       {view === 'month' && (
-        <div className="bg-white border border-[#E2DFD5] rounded-xl overflow-hidden">
-          <div className="grid grid-cols-7 bg-[#F7F6F2] border-b border-[#E2DFD5] text-xs font-medium text-[#6E6C63]">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-              <div key={d} className="px-3 py-2.5 text-center">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 divide-x divide-y divide-[#E2DFD5]">
-            {monthDays.map((dayStr) => {
-              const inCurrentMonth = dayStr.slice(0, 7) === anchorDate.slice(0, 7);
-              const isToday = dayStr === todayStr;
-              const dayItems = getItemsForDate(dayStr);
-
-              return (
-                <div
-                  key={dayStr}
-                  className={`min-h-[115px] p-2 flex flex-col gap-1 ${
-                    inCurrentMonth ? 'bg-white' : 'bg-[#F7F6F2]/60 text-[#6E6C63]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAnchorDate(dayStr);
-                        setView('day');
-                      }}
-                      className={`w-6 h-6 rounded-full text-xs font-mono flex items-center justify-center ${
-                        isToday
-                          ? 'bg-[#183D2D] text-white font-semibold'
-                          : 'hover:bg-[#EFEDE6]'
-                      }`}
-                    >
-                      {Number(dayStr.slice(8, 10))}
-                    </button>
-                    {dayItems.length > 0 && (
-                      <span className="text-[10px] font-mono text-[#6E6C63]">
-                        {dayItems.length}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1 overflow-y-auto max-h-[84px]">
-                    {dayItems.map((it) => (
-                      <button
-                        key={it.id}
-                        type="button"
-                        onClick={() => {
-                          if (it.booking) setDetailBooking(it.booking);
-                        }}
-                        className={`w-full text-left px-1.5 py-1 rounded border text-[11px] leading-tight truncate ${KIND_STYLES[it.kind]}`}
-                        title={`${it.timeLabel} · ${it.title}`}
-                      >
-                        <span className="font-mono">{it.timeLabel}</span> · {it.title}
-                      </button>
-                    ))}
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+          <div className="bg-white border border-[#E2DFD5] rounded-xl overflow-hidden">
+            <div className="grid grid-cols-7 bg-[#F7F6F2] border-b border-[#E2DFD5] text-xs font-medium text-[#6E6C63]">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                <div key={d} className="px-3 py-2.5 text-center">
+                  {d}
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 divide-x divide-y divide-[#E2DFD5]">
+              {monthDays.map((dayStr) => {
+                const inCurrentMonth = dayStr.slice(0, 7) === anchorDate.slice(0, 7);
+                const isToday = dayStr === todayStr;
+                const isSelected = dayStr === selectedDate;
+                const dayItems = getItemsForDate(dayStr);
+
+                return (
+                  <div
+                    key={dayStr}
+                    className={`min-h-[115px] p-2 flex flex-col gap-1 ${
+                      inCurrentMonth ? 'bg-white' : 'bg-[#F7F6F2]/60 text-[#6E6C63]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => {
+                          setSelectedDate(dayStr);
+                          if (!inCurrentMonth) setAnchorDate(dayStr);
+                        }}
+                        className={`w-6 h-6 rounded-full text-xs font-mono flex items-center justify-center ${
+                          isSelected
+                            ? 'bg-[#183D2D] text-white font-semibold'
+                            : isToday
+                            ? 'ring-1 ring-[#183D2D] text-[#183D2D] font-semibold'
+                            : 'hover:bg-[#EFEDE6]'
+                        }`}
+                      >
+                        {Number(dayStr.slice(8, 10))}
+                      </button>
+                      {dayItems.length > 0 && (
+                        <span className="text-[10px] font-mono text-[#6E6C63]">
+                          {dayItems.length}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 overflow-y-auto max-h-[84px]">
+                      {dayItems.map((it) => (
+                        <button
+                          key={it.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate(dayStr);
+                            if (it.booking) setDetailBooking(it.booking);
+                          }}
+                          className={`w-full text-left px-1.5 py-1 rounded border text-[11px] leading-tight truncate ${KIND_STYLES[it.kind]}`}
+                          title={`${it.timeLabel} · ${it.title}`}
+                        >
+                          <span className="font-mono">{it.timeLabel}</span> · {it.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          <aside className="rounded-xl border border-[#E2DFD5] bg-[#183D2D] p-4 text-white">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/15">
+              <div>
+                <p className="text-xs text-white/65">Selected date</p>
+                <h3 className="mt-1 text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+                  {formatColomboDate(selectedDate)}
+                </h3>
+              </div>
+              <CalendarDays className="w-5 h-5 text-[#D7C18D]" />
+            </div>
+
+            {selectedDayItems.length === 0 ? (
+              <p className="py-8 text-center text-xs text-white/70">
+                No bookings found for this date.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-white/70">
+                  {selectedDayItems.length} scheduled item{selectedDayItems.length === 1 ? '' : 's'}
+                </p>
+                {selectedDayItems.map((item) => (
+                  <article key={item.id} className="rounded-lg bg-white p-3 text-[#1C2420]">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6E6C63]">
+                          {item.kind === 'BLOCK' ? 'Blocked' : `${item.kind} booking`}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold break-words">{item.title}</p>
+                        <p className="mt-1 text-xs text-[#6E6C63]">{item.timeLabel}</p>
+                      </div>
+                      {item.status && (
+                        <span className="shrink-0 rounded-full bg-[#EEF3F0] px-2 py-1 text-[10px] font-medium text-[#183D2D]">
+                          {item.status}
+                        </span>
+                      )}
+                    </div>
+                    {item.booking && (
+                      <>
+                        <div className="mt-3 space-y-1.5 border-t border-[#E2DFD5] pt-3 text-xs">
+                          <p className="flex justify-between gap-2">
+                            <span className="text-[#6E6C63]">Guest</span>
+                            <span className="text-right font-medium">{item.booking.data.customerName}</span>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDetailBooking(item.booking!)}
+                          className="mt-3 w-full rounded-lg bg-[#F7F6F2] px-3 py-2 text-xs font-medium text-[#183D2D] hover:bg-[#EFEDE6]"
+                        >
+                          View Details
+                        </button>
+                      </>
+                    )}
+                    {item.block && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBlock(item.block!)}
+                        className="mt-3 w-full rounded-lg bg-[#FEF2F2] px-3 py-2 text-xs font-medium text-[#B91C1C]"
+                      >
+                        Remove Block
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </aside>
         </div>
       )}
 
@@ -563,6 +738,32 @@ export const CalendarPage: React.FC = () => {
           )}
         </div>
       )}
+
+      <section aria-label="Monthly booking summary" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-[#1C2420]">Booking Summary</h3>
+          <span className="text-xs text-[#6E6C63]">{anchorMonthLabel}</span>
+        </div>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.label}
+                className={`flex items-center gap-3 rounded-xl border border-[#E2DFD5] p-4 ${card.color}`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 text-[#183D2D]">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xl font-semibold tabular-nums text-[#1C2420]">{card.value}</p>
+                  <p className="text-[11px] text-[#6E6C63]">{card.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Active Blocked Schedules Table */}
       {blockedSchedules.length > 0 && (
@@ -747,29 +948,6 @@ export const CalendarPage: React.FC = () => {
       <BookingDetailModal
         booking={detailBooking}
         onClose={() => setDetailBooking(null)}
-        onRecordPayment={
-          detailBooking && detailBooking.data.status !== 'Cancelled'
-            ? () => {
-                const d = detailBooking.data;
-                setPaymentTarget({
-                  id: d.id,
-                  bookingCode: d.bookingCode,
-                  bookingType: detailBooking.category,
-                  customerName: d.customerName,
-                  totalPayment: d.totalPayment,
-                  advancePayment: d.advancePayment,
-                  duePayment: d.duePayment,
-                });
-                setDetailBooking(null);
-              }
-            : undefined
-        }
-      />
-
-      <PaymentModal
-        open={Boolean(paymentTarget)}
-        booking={paymentTarget}
-        onClose={() => setPaymentTarget(null)}
       />
     </div>
   );

@@ -30,7 +30,7 @@ export const AuditLogsPage: React.FC = () => {
           Security &amp; Operations Audit Logs
         </h2>
         <p className="text-sm text-[#6E6C63] mt-0.5">
-          Immutable, chronological trail of authentication, bookings, payments, and staff changes.
+          Immutable, chronological trail of authentication, booking changes, and staff activity.
         </p>
       </div>
 
