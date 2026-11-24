@@ -23,3 +23,15 @@ export function getApiErrorMessage(payload: unknown): string | undefined {
     getApiErrorMessage(record.code)
   );
 }
+
+export function getApiHttpErrorMessage(status: number, payload: unknown): string {
+  const serverMessage = getApiErrorMessage(payload);
+  if (serverMessage) return serverMessage;
+  if (status >= 500) {
+    return `The server could not complete the request (HTTP ${status}). Please try again later.`;
+  }
+  if (status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
+  }
+  return `The request failed (HTTP ${status}).`;
+}

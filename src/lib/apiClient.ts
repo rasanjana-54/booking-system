@@ -1,6 +1,10 @@
 import axios, { AxiosError } from 'axios';
 import { auth } from './firebase';
-import { getApiErrorMessage } from './apiError';
+import { getApiErrorMessage, getApiHttpErrorMessage } from './apiError';
+
+function isHtmlErrorPage(value: string): boolean {
+  return /<(?:!doctype\s+html|html\b|head\b|body\b)/i.test(value);
+}
 
 export const apiClient = axios.create({
   baseURL: '/api',
@@ -25,16 +29,22 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<unknown>) => {
     let data = error.response?.data;
     if (data instanceof Blob) {
+      const text = await data.text();
       try {
-        const text = await data.text();
         data = JSON.parse(text) as unknown;
       } catch {
-        // ignore non-JSON blob
+        data = text;
       }
     }
+    if (typeof data === 'string' && isHtmlErrorPage(data)) data = undefined;
     const serverMsg = getApiErrorMessage(data);
     if (serverMsg) {
       return Promise.reject(new Error(serverMsg));
+    }
+    if (error.response) {
+      return Promise.reject(
+        new Error(getApiHttpErrorMessage(error.response.status, data))
+      );
     }
     return Promise.reject(
       new Error(error.message || 'Network error while communicating with server.')
