@@ -6,7 +6,7 @@ import type {
   VillaSettings,
   WhatsAppReminder,
 } from '../types/villa.ts';
-import { adminDb } from './firebaseAdmin.ts';
+import { getAdminDb } from './firebaseAdmin.ts';
 
 const REMINDER_COLLECTION = 'whatsapp_reminders';
 const LEASE_DURATION_MS = 5 * 60 * 1000;
@@ -412,7 +412,7 @@ function decodeReminder(
 
 export class FirestoreReminderStore implements ReminderStore {
   async listShootBookings(startDate: string, endDateExclusive: string): Promise<ShootBooking[]> {
-    const snapshot = await adminDb
+    const snapshot = await getAdminDb()
       .collection('shoots')
       .where('shootDate', '>=', startDate)
       .where('shootDate', '<', endDateExclusive)
@@ -421,25 +421,25 @@ export class FirestoreReminderStore implements ReminderStore {
   }
 
   async getShootBooking(bookingId: string): Promise<ShootBooking | null> {
-    const snapshot = await adminDb.collection('shoots').doc(bookingId).get();
+    const snapshot = await getAdminDb().collection('shoots').doc(bookingId).get();
     return snapshot.exists ? ({ ...snapshot.data(), id: snapshot.id } as ShootBooking) : null;
   }
 
   async getStaff(staffEmail: string): Promise<StaffMember | null> {
     const email = staffEmail.trim().toLowerCase();
-    const snapshot = await adminDb.collection('staff').doc(email).get();
+    const snapshot = await getAdminDb().collection('staff').doc(email).get();
     return snapshot.exists ? ({ ...snapshot.data(), id: snapshot.id } as StaffMember) : null;
   }
 
   async getVillaSettings(): Promise<VillaSettings | null> {
-    const snapshot = await adminDb.collection('villa_settings').doc('general').get();
+    const snapshot = await getAdminDb().collection('villa_settings').doc('general').get();
     return snapshot.exists
       ? ({ ...snapshot.data(), id: snapshot.id } as VillaSettings)
       : null;
   }
 
   async getReminder(reminderId: string): Promise<ReminderRecord | null> {
-    const snapshot = await adminDb.collection(REMINDER_COLLECTION).doc(reminderId).get();
+    const snapshot = await getAdminDb().collection(REMINDER_COLLECTION).doc(reminderId).get();
     return snapshot.exists ? decodeReminder(snapshot.id, snapshot.data() || {}) : null;
   }
 
@@ -449,8 +449,9 @@ export class FirestoreReminderStore implements ReminderStore {
     reason: string,
     now: Date
   ): Promise<void> {
-    const ref = adminDb.collection(REMINDER_COLLECTION).doc(reminderId);
-    await adminDb.runTransaction(async (transaction) => {
+    const db = getAdminDb();
+    const ref = db.collection(REMINDER_COLLECTION).doc(reminderId);
+    await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const current = snapshot.data();
       if (current?.status === 'SENT') return;
@@ -487,8 +488,9 @@ export class FirestoreReminderStore implements ReminderStore {
     attemptId: string,
     now: Date
   ): Promise<ClaimResult> {
-    const ref = adminDb.collection(REMINDER_COLLECTION).doc(reminderId);
-    return adminDb.runTransaction(async (transaction) => {
+    const db = getAdminDb();
+    const ref = db.collection(REMINDER_COLLECTION).doc(reminderId);
+    return db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const current = snapshot.data();
       if (current?.status === 'SENT') return 'ALREADY_SENT';
@@ -532,8 +534,9 @@ export class FirestoreReminderStore implements ReminderStore {
     providerMessageId: string,
     sentAt: Date
   ): Promise<void> {
-    const ref = adminDb.collection(REMINDER_COLLECTION).doc(reminderId);
-    await adminDb.runTransaction(async (transaction) => {
+    const db = getAdminDb();
+    const ref = db.collection(REMINDER_COLLECTION).doc(reminderId);
+    await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const current = snapshot.data();
       if (!current || current.attemptId !== attemptId || current.status !== 'PENDING') {
@@ -557,8 +560,9 @@ export class FirestoreReminderStore implements ReminderStore {
     reason: string,
     failedAt: Date
   ): Promise<void> {
-    const ref = adminDb.collection(REMINDER_COLLECTION).doc(reminderId);
-    await adminDb.runTransaction(async (transaction) => {
+    const db = getAdminDb();
+    const ref = db.collection(REMINDER_COLLECTION).doc(reminderId);
+    await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const current = snapshot.data();
       if (!current || current.attemptId !== attemptId || current.status !== 'PENDING') {
@@ -574,7 +578,7 @@ export class FirestoreReminderStore implements ReminderStore {
   }
 
   async listReminders(): Promise<ReminderRecord[]> {
-    const snapshot = await adminDb
+    const snapshot = await getAdminDb()
       .collection(REMINDER_COLLECTION)
       .orderBy('updatedAt', 'desc')
       .limit(200)
@@ -587,12 +591,12 @@ export class FirestoreReminderStore implements ReminderStore {
     status: string,
     failureReason?: string
   ): Promise<boolean> {
-    const matches = await adminDb
+    const snapshot = await getAdminDb()
       .collection(REMINDER_COLLECTION)
       .where('providerMessageId', '==', providerMessageId)
       .limit(1)
       .get();
-    const reminder = matches.docs[0];
+    const reminder = snapshot.docs[0];
     if (!reminder) return false;
 
     const now = new Date();

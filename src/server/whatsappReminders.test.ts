@@ -5,6 +5,7 @@ import type {
   StaffMember,
   VillaSettings,
 } from '../types/villa.ts';
+import { parseFirebaseServiceAccount } from './firebaseAdmin.ts';
 import {
   buildTemplateParameters,
   getWeeklyReminderPeriod,
@@ -19,6 +20,22 @@ import {
 } from './whatsappReminders.ts';
 
 const periodId = '2026-03-22';
+
+describe('Firebase service-account configuration', () => {
+  it('keeps malformed optional credentials from breaking API startup', () => {
+    const result = parseFirebaseServiceAccount('{invalid json');
+
+    assert.equal(result.credential, undefined);
+    assert.match(result.error?.message || '', /valid service-account JSON/);
+  });
+
+  it('does not treat an unset optional credential as malformed', () => {
+    const result = parseFirebaseServiceAccount(undefined);
+
+    assert.equal(result.credential, undefined);
+    assert.equal(result.error, undefined);
+  });
+});
 
 function makeBooking(overrides: Partial<ShootBooking> = {}): ShootBooking {
   return {

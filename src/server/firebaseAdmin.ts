@@ -3,27 +3,38 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import firebaseConfig from '../../firebase-applet-config.json' with { type: 'json' };
 
-if (!getApps().length) {
-  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  let credential;
-  if (serviceAccountJson) {
-    try {
-      credential = cert(JSON.parse(serviceAccountJson));
-    } catch (error) {
-      throw new Error(
-        `FIREBASE_SERVICE_ACCOUNT_JSON is invalid: ${
-          error instanceof Error ? error.message : 'unable to parse service account'
-        }`
-      );
-    }
+export function parseFirebaseServiceAccount(value: string | undefined) {
+  if (!value) return { credential: undefined, error: undefined };
+
+  try {
+    return { credential: cert(JSON.parse(value)), error: undefined };
+  } catch {
+    return {
+      credential: undefined,
+      error: new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain valid service-account JSON.'),
+    };
   }
+}
+
+const serviceAccount = parseFirebaseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+
+if (serviceAccount.error) {
+  console.error(serviceAccount.error.message);
+}
+
+if (!getApps().length) {
   initializeApp({
     projectId: firebaseConfig.projectId,
-    ...(credential ? { credential } : {}),
+    ...(serviceAccount.credential ? { credential: serviceAccount.credential } : {}),
   });
 }
 
 export const adminAuth = getAuth();
-export const adminDb = getFirestore();
+
+export function getAdminDb() {
+  if (serviceAccount.error) throw serviceAccount.error;
+  return getFirestore();
+}
+
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 export const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId || '(default)';
