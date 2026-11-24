@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { auth } from './firebase';
+import { getApiErrorMessage } from './apiError';
 
 export const apiClient = axios.create({
   baseURL: '/api',
@@ -21,20 +22,17 @@ apiClient.interceptors.request.use(async (config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ error?: string }>) => {
-    const data = error.response?.data;
+  async (error: AxiosError<unknown>) => {
+    let data = error.response?.data;
     if (data instanceof Blob) {
       try {
         const text = await data.text();
-        const parsed = JSON.parse(text) as { error?: string };
-        if (parsed?.error) {
-          return Promise.reject(new Error(parsed.error));
-        }
+        data = JSON.parse(text) as unknown;
       } catch {
         // ignore non-JSON blob
       }
     }
-    const serverMsg = data && !(data instanceof Blob) ? data.error : undefined;
+    const serverMsg = getApiErrorMessage(data);
     if (serverMsg) {
       return Promise.reject(new Error(serverMsg));
     }

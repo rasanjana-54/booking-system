@@ -93,7 +93,7 @@ export async function fetchExcelBackup(): Promise<Blob> {
 }
 
 // ==========================================
-// STAFF MANAGEMENT (4-ACCOUNT CAP)
+// STAFF MANAGEMENT (6-ACCOUNT CAP)
 // ==========================================
 
 export async function createStaffAccount(

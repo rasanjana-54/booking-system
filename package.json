@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.ts",
-    "test": "tsx --test src/server/whatsappReminders.test.ts src/utils/staffSlots.test.ts",
+    "test": "tsx --test src/server/whatsappReminders.test.ts src/utils/staffSlots.test.ts src/lib/apiError.test.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

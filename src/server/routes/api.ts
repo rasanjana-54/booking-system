@@ -89,7 +89,7 @@ function uniqueEmails(emails: string[], fallbackEmail: string): string[] {
   const set = new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   set.add(SUPER_ADMIN_EMAIL);
   if (fallbackEmail) set.add(fallbackEmail.trim().toLowerCase());
-  return Array.from(set).slice(0, 4);
+  return Array.from(set).slice(0, MAX_STAFF_ACCOUNTS);
 }
 
 function collectionForCategory(category: BookingCategory): string {
