@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test src/server/firestoreRest.test.js src/server/whatsappReminders.test.js src/utils/staffSlots.test.js src/lib/apiError.test.js",
+    "test": "node --test src/server/firestoreRest.test.js src/server/whatsappReminders.test.js src/server/vercelRouting.test.js src/utils/staffSlots.test.js src/lib/apiError.test.js",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
