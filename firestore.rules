@@ -350,16 +350,15 @@ service cloud.firestore {
 
     // Collection: staff (max 6 authorized staff slots)
     match /staff/{staffId} {
+      // Own record is always readable (needed at login, before the account is confirmed active).
+      // Any active staff account can read the shared staff directory.
       allow get: if isValidId(staffId) && (
-        isAdmin()
+        isActiveStaff()
         || (isVerifiedUser() && staffId == userEmailLower())
         || (isVerifiedUser() && resource != null && existing().email == userEmailLower())
       );
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || (isActiveStaff() && existing().email == userEmailLower())
-        || (isAdmin() && userEmailLower() in existing().adminEmails)
-      );
+      allow list: if isActiveStaff()
+        || (isVerifiedUser() && existing().email == userEmailLower());
       allow create: if isValidId(staffId)
         && isAdmin()
         && isValidStaff(incoming())
@@ -592,10 +591,7 @@ service cloud.firestore {
     // Collection: audit_logs (Admin readable only, immutable append-only)
     match /audit_logs/{logId} {
       allow get: if isValidId(logId) && isAdmin();
-      allow list: if isAdmin() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().adminEmails
-      );
+      allow list: if isAdmin();
       allow create: if isValidId(logId)
         && isActiveStaff()
         && isValidAuditLog(incoming())
@@ -607,10 +603,7 @@ service cloud.firestore {
     // Collection: villa_settings
     match /villa_settings/{settingId} {
       allow get: if isValidId(settingId) && isActiveStaff();
-      allow list: if isActiveStaff() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create, update: if isValidId(settingId)
         && isAdmin()
         && isValidVillaSettings(incoming())
