@@ -3,7 +3,8 @@ import { test } from "node:test";
 import {
   fsCommit,
   fsGetDoc,
-  fsQueryArrayContains
+  fsQueryArrayContains,
+  fsQueryCollection
 } from "./firestoreRest.js";
 
 function forbiddenResponse() {
@@ -62,4 +63,41 @@ test("Firestore reads do not fall back to local staff data on errors", async (t)
     ),
     /Firestore query failed \(403\): PERMISSION_DENIED/
   );
+});
+
+test("shared collection queries return all documents without an account-specific filter", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, init) => {
+    const request = JSON.parse(init.body);
+    assert.deepEqual(request.structuredQuery, {
+      from: [{ collectionId: "events" }]
+    });
+    return new Response(JSON.stringify([
+      {
+        document: {
+          name: "projects/test/databases/(default)/documents/events/event-a",
+          fields: { customerName: { stringValue: "First customer" } }
+        }
+      },
+      {
+        document: {
+          name: "projects/test/databases/(default)/documents/events/event-b",
+          fields: { customerName: { stringValue: "Second customer" } }
+        }
+      }
+    ]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const events = await fsQueryCollection("test-id-token", "events");
+
+  assert.deepEqual(events, [
+    { id: "event-a", customerName: "First customer" },
+    { id: "event-b", customerName: "Second customer" }
+  ]);
 });

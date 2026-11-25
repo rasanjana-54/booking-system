@@ -391,10 +391,7 @@ service cloud.firestore {
     // Collection: events
     match /events/{eventId} {
       allow get: if isValidId(eventId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(eventId)
         && isActiveStaff()
         && isValidEventBooking(incoming())
@@ -438,10 +435,7 @@ service cloud.firestore {
     // Collection: shoots
     match /shoots/{shootId} {
       allow get: if isValidId(shootId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(shootId)
         && isActiveStaff()
         && isValidShootBooking(incoming())
@@ -485,10 +479,7 @@ service cloud.firestore {
     // Collection: room_types
     match /room_types/{roomTypeId} {
       allow get: if isValidId(roomTypeId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(roomTypeId)
         && isActiveStaff()
         && isValidRoomType(incoming())
@@ -513,10 +504,7 @@ service cloud.firestore {
     // Collection: room_bookings
     match /room_bookings/{bookingId} {
       allow get: if isValidId(bookingId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(bookingId)
         && isActiveStaff()
         && isValidRoomBooking(incoming())
@@ -562,10 +550,7 @@ service cloud.firestore {
     // Collection: payments
     match /payments/{paymentId} {
       allow get: if isValidId(paymentId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(paymentId)
         && isActiveStaff()
         && isValidPayment(incoming())
@@ -588,10 +573,7 @@ service cloud.firestore {
     // Collection: blocked_schedules
     match /blocked_schedules/{blockId} {
       allow get: if isValidId(blockId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
-        userEmailLower() == 'rnimsara54@gmail.com'
-        || userEmailLower() in existing().authorizedEmails
-      );
+      allow list: if isActiveStaff();
       allow create: if isValidId(blockId)
         && isActiveStaff()
         && isValidBlockedSchedule(incoming())

@@ -6,6 +6,7 @@ import {
   fsCommit,
   fsGetDoc,
   fsQueryArrayContains,
+  fsQueryCollection,
   SERVER_TIMESTAMP
 } from "../firestoreRest.js";
 import {
@@ -442,22 +443,12 @@ apiRouter.get("/bootstrap", async (req, res) => {
     const staff = req.staff;
     const emailLower = staff.email.toLowerCase();
     const baseQueries = [
-      fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "room_types", "authorizedEmails", emailLower),
-      fsQueryArrayContains(
-        idToken,
-        "room_bookings",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(idToken, "payments", "authorizedEmails", emailLower),
-      fsQueryArrayContains(
-        idToken,
-        "blocked_schedules",
-        "authorizedEmails",
-        emailLower
-      ),
+      fsQueryCollection(idToken, "events"),
+      fsQueryCollection(idToken, "shoots"),
+      fsQueryCollection(idToken, "room_types"),
+      fsQueryCollection(idToken, "room_bookings"),
+      fsQueryCollection(idToken, "payments"),
+      fsQueryCollection(idToken, "blocked_schedules"),
       fsGetDoc(idToken, "villa_settings", "general")
     ];
     const [
@@ -508,14 +499,9 @@ apiRouter.post("/events", async (req, res) => {
     const emailLower = staff.email.toLowerCase();
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
-        fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-        fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "events"),
+        fsQueryCollection(idToken, "shoots"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findVenueScheduleConflict({
         date: input.eventDate,
@@ -638,14 +624,9 @@ apiRouter.patch("/events/:id", async (req, res) => {
     }
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
-        fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-        fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "events"),
+        fsQueryCollection(idToken, "shoots"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findVenueScheduleConflict({
         date: input.eventDate,
@@ -732,14 +713,9 @@ apiRouter.post("/shoots", async (req, res) => {
     }
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
-        fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-        fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "events"),
+        fsQueryCollection(idToken, "shoots"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findVenueScheduleConflict({
         date: input.shootDate,
@@ -878,14 +854,9 @@ apiRouter.patch("/shoots/:id", async (req, res) => {
     }
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
-        fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-        fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "events"),
+        fsQueryCollection(idToken, "shoots"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findVenueScheduleConflict({
         date: input.shootDate,
@@ -1094,18 +1065,8 @@ apiRouter.post("/room-bookings", async (req, res) => {
     }
     if (input.status !== "Cancelled") {
       const [roomBookings, blocks] = await Promise.all([
-        fsQueryArrayContains(
-          idToken,
-          "room_bookings",
-          "authorizedEmails",
-          emailLower
-        ),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "room_bookings"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findRoomBookingConflict({
         roomTypeId: input.roomTypeId,
@@ -1238,18 +1199,8 @@ apiRouter.patch("/room-bookings/:id", async (req, res) => {
     }
     if (input.status !== "Cancelled" && input.status !== "Checked-out") {
       const [roomBookings, blocks] = await Promise.all([
-        fsQueryArrayContains(
-          idToken,
-          "room_bookings",
-          "authorizedEmails",
-          emailLower
-        ),
-        fsQueryArrayContains(
-          idToken,
-          "blocked_schedules",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "room_bookings"),
+        fsQueryCollection(idToken, "blocked_schedules")
       ]);
       const conflict = findRoomBookingConflict({
         roomTypeId: input.roomTypeId,
@@ -1467,12 +1418,7 @@ apiRouter.post("/payments", async (req, res) => {
         col,
         input.bookingId
       ),
-      fsQueryArrayContains(
-        idToken,
-        "payments",
-        "authorizedEmails",
-        emailLower
-      )
+      fsQueryCollection(idToken, "payments")
     ]);
     if (!booking) {
       res.status(404).json({ error: "Target booking no longer exists." });
@@ -1578,12 +1524,7 @@ apiRouter.post(
       const col = collectionForCategory(payment.bookingType);
       const [booking, allPayments] = await Promise.all([
         fsGetDoc(idToken, col, payment.bookingId),
-        fsQueryArrayContains(
-          idToken,
-          "payments",
-          "authorizedEmails",
-          emailLower
-        )
+        fsQueryCollection(idToken, "payments")
       ]);
       if (!booking) {
         res.status(404).json({ error: "Parent booking not found." });
@@ -1726,7 +1667,7 @@ apiRouter.delete("/calendar/blocks/:id", async (req, res) => {
     handleRouteError(res, err, "Failed to remove schedule block.");
   }
 });
-async function buildSyncOps(idToken, callerEmail, callerUid, allStaff) {
+async function buildSyncOps(idToken, callerUid, allStaff) {
   const activeEmails = uniqueEmails(
     allStaff.filter((s) => s.isActive).map((s) => s.email),
     SUPER_ADMIN_EMAIL
@@ -1736,37 +1677,6 @@ async function buildSyncOps(idToken, callerEmail, callerUid, allStaff) {
     SUPER_ADMIN_EMAIL
   );
   const ops = [];
-  const collectionsToSync = [
-    "events",
-    "shoots",
-    "room_types",
-    "room_bookings",
-    "payments",
-    "blocked_schedules"
-  ];
-  const snapshots = await Promise.all(
-    collectionsToSync.map(
-      (col) => fsQueryArrayContains(idToken, col, "authorizedEmails", callerEmail)
-    )
-  );
-  collectionsToSync.forEach((col, idx) => {
-    const docs = snapshots[idx];
-    for (const d of docs) {
-      const data = {
-        authorizedEmails: activeEmails
-      };
-      if (col !== "payments" && col !== "blocked_schedules") {
-        data.updatedAt = SERVER_TIMESTAMP;
-      }
-      ops.push({
-        type: "update",
-        collection: col,
-        docId: d.id,
-        data,
-        updateFields: ["authorizedEmails"]
-      });
-    }
-  });
   for (const s of allStaff) {
     ops.push({
       type: "update",
@@ -1854,7 +1764,7 @@ apiRouter.post("/staff", requireAdminRole, async (req, res) => {
       createdBy: req.uid
     };
     await fsCommit(idToken, [{ type: "set", collection: "staff", docId: key, data: payload }]);
-    const syncOps = await buildSyncOps(idToken, callerEmail, req.uid, [
+    const syncOps = await buildSyncOps(idToken, req.uid, [
       ...existingStaff,
       newStaffRecord
     ]);
@@ -1927,7 +1837,7 @@ apiRouter.patch("/staff/:id", requireAdminRole, async (req, res) => {
       adminEmails,
       updatedAt: SERVER_TIMESTAMP
     };
-    const syncOps = await buildSyncOps(idToken, callerEmail, req.uid, updatedList);
+    const syncOps = await buildSyncOps(idToken, req.uid, updatedList);
     await fsCommit(idToken, [
       {
         type: "update",
@@ -1979,7 +1889,7 @@ apiRouter.delete("/staff/:id", requireAdminRole, async (req, res) => {
       remaining.filter((s) => s.isActive && s.role === "ADMIN").map((s) => s.email),
       SUPER_ADMIN_EMAIL
     );
-    const syncOps = await buildSyncOps(idToken, callerEmail, req.uid, remaining);
+    const syncOps = await buildSyncOps(idToken, req.uid, remaining);
     await fsCommit(idToken, [
       { type: "delete", collection: "staff", docId: staffId },
       ...syncOps,
@@ -2043,14 +1953,13 @@ apiRouter.patch("/settings", requireAdminRole, async (req, res) => {
 apiRouter.get("/backup", requireAdminRole, async (req, res) => {
   try {
     const idToken = req.idToken;
-    const emailLower = req.staff.email.toLowerCase();
     const [events, shoots, roomTypes, roomBookings, payments, blockedSchedules, settings] = await Promise.all([
-      fsQueryArrayContains(idToken, "events", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "shoots", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "room_types", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "room_bookings", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "payments", "authorizedEmails", emailLower),
-      fsQueryArrayContains(idToken, "blocked_schedules", "authorizedEmails", emailLower),
+      fsQueryCollection(idToken, "events"),
+      fsQueryCollection(idToken, "shoots"),
+      fsQueryCollection(idToken, "room_types"),
+      fsQueryCollection(idToken, "room_bookings"),
+      fsQueryCollection(idToken, "payments"),
+      fsQueryCollection(idToken, "blocked_schedules"),
       fsGetDoc(idToken, "villa_settings", "general")
     ]);
     res.json({
@@ -2098,44 +2007,13 @@ function styleExcelSheet(sheet, currencyCols = []) {
 apiRouter.get("/backup/excel", requireAdminRole, async (req, res) => {
   try {
     const idToken = req.idToken;
-    const emailLower = req.staff.email.toLowerCase();
     const [events, shoots, roomTypes, roomBookings, payments, blockedSchedules, settings] = await Promise.all([
-      fsQueryArrayContains(
-        idToken,
-        "events",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(
-        idToken,
-        "shoots",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(
-        idToken,
-        "room_types",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(
-        idToken,
-        "room_bookings",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(
-        idToken,
-        "payments",
-        "authorizedEmails",
-        emailLower
-      ),
-      fsQueryArrayContains(
-        idToken,
-        "blocked_schedules",
-        "authorizedEmails",
-        emailLower
-      ),
+      fsQueryCollection(idToken, "events"),
+      fsQueryCollection(idToken, "shoots"),
+      fsQueryCollection(idToken, "room_types"),
+      fsQueryCollection(idToken, "room_bookings"),
+      fsQueryCollection(idToken, "payments"),
+      fsQueryCollection(idToken, "blocked_schedules"),
       fsGetDoc(idToken, "villa_settings", "general")
     ]);
     events.sort((a, b) => b.eventDate.localeCompare(a.eventDate));

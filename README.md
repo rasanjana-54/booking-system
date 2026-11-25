@@ -26,9 +26,10 @@ A private internal operations portal built for **up to 6 authorized villa manage
 
 - **6-Account Private Allowlist**: Bootstrapped administrator (`rnimsara54@gmail.com`) provisions up to 5 additional staff Google accounts in Staff Management. Unauthorized or deactivated Google accounts are denied across React routes, Express API middleware, and Firestore Security Rules.
 - **Role-Based Access Control (RBAC)**: Only `ADMIN` accounts can manage staff, view audit logs, restore or permanently delete archived records, void/adjust payments, export backups, and update villa settings.
+- **Shared Operations Data**: All active staff accounts can view shared bookings, room inventory, payments, and blocked schedules. Deploy the updated Firestore rules with each production release so these permissions apply to existing and newly added accounts.
 - **Express API Security**: Helmet headers, rate limiting on auth and API endpoints, CSRF validation on state-changing requests, Zod input validation, and server-side schedule conflict enforcement.
 - **Inactivity Session Expiration**: Tracks user activity and automatically signs out after the configured idle timeout (default 30 minutes) with a 2-minute warning prompt.
-- **Hardened Firestore Security Rules**: Enforces strict field schemas (`isValid*`), server timestamps (`request.time`), immutable creator fields, terminal state locking, and non-blanket `allow list` resource filtering.
+- **Hardened Firestore Security Rules**: Enforces strict field schemas (`isValid*`), server timestamps (`request.time`), immutable creator fields, terminal state locking, shared operational-data access for active staff, and admin-only filtering for staff/audit/settings lists.
 
 ## Setup & Deployment
 

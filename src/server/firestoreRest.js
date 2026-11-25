@@ -238,6 +238,25 @@ async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
   const rows = await res.json();
   return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
 }
+async function fsQueryCollection(idToken, collectionName) {
+  if (!idToken || idToken === "local-admin-token") {
+    return Array.from(getLocalCollection(collectionName), ([id, doc]) => ({
+      ...doc,
+      id
+    }));
+  }
+  const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
+    method: "POST",
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: collectionName }]
+      }
+    })
+  });
+  await assertFirestoreSuccess(res, "query");
+  const rows = await res.json();
+  return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
+}
 function applyLocalOps(ops) {
   for (const op of ops) {
     const col = getLocalCollection(op.collection);
@@ -303,5 +322,6 @@ export {
   fsCommit,
   fsGetDoc,
   fsQueryArrayContains,
+  fsQueryCollection,
   toFirestoreValue
 };
