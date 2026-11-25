@@ -351,12 +351,14 @@ service cloud.firestore {
     // Collection: staff (max 6 authorized staff slots)
     match /staff/{staffId} {
       allow get: if isValidId(staffId) && (
-        isAdmin() || (isVerifiedUser() && existing().email == userEmailLower())
+        isAdmin()
+        || (isVerifiedUser() && staffId == userEmailLower())
+        || (isVerifiedUser() && resource != null && existing().email == userEmailLower())
       );
       allow list: if isVerifiedUser() && (
         userEmailLower() == 'rnimsara54@gmail.com'
-        || existing().email == userEmailLower()
-        || userEmailLower() in existing().adminEmails
+        || (isActiveStaff() && existing().email == userEmailLower())
+        || (isAdmin() && userEmailLower() in existing().adminEmails)
       );
       allow create: if isValidId(staffId)
         && isAdmin()
@@ -590,7 +592,7 @@ service cloud.firestore {
     // Collection: audit_logs (Admin readable only, immutable append-only)
     match /audit_logs/{logId} {
       allow get: if isValidId(logId) && isAdmin();
-      allow list: if isVerifiedUser() && (
+      allow list: if isAdmin() && (
         userEmailLower() == 'rnimsara54@gmail.com'
         || userEmailLower() in existing().adminEmails
       );
@@ -605,7 +607,7 @@ service cloud.firestore {
     // Collection: villa_settings
     match /villa_settings/{settingId} {
       allow get: if isValidId(settingId) && isActiveStaff();
-      allow list: if isVerifiedUser() && (
+      allow list: if isActiveStaff() && (
         userEmailLower() == 'rnimsara54@gmail.com'
         || userEmailLower() in existing().authorizedEmails
       );

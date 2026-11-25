@@ -84,6 +84,12 @@ const AllBookingsPage = () => {
       setSortAsc(true);
     }
   };
+  const activeDetailBooking = useMemo(() => {
+    if (!detailBooking) return null;
+    const list = detailBooking.category === "EVENT" ? events : detailBooking.category === "SHOOT" ? shoots : roomBookings;
+    const latest = list.find((item) => item.id === detailBooking.data.id);
+    return latest ? { category: detailBooking.category, data: latest } : detailBooking;
+  }, [detailBooking, events, shoots, roomBookings]);
   return <div className="space-y-6">
       <div>
         <h2
@@ -331,7 +337,7 @@ const AllBookingsPage = () => {
       </div>
 
       <BookingDetailModal
-    booking={detailBooking}
+    booking={activeDetailBooking}
     onClose={() => setDetailBooking(null)}
   />
     </div>;

@@ -8,7 +8,9 @@ const LoginPage = () => {
   const {
     firebaseUser,
     firebaseAuthenticated,
+    currentStaff,
     authReady,
+    sessionChecking,
     signingIn,
     accessError,
     signInWithGoogle,
@@ -16,10 +18,10 @@ const LoginPage = () => {
   } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    if (authReady && firebaseAuthenticated) {
+    if (authReady && !sessionChecking && firebaseAuthenticated && currentStaff?.isActive) {
       navigate("/dashboard", { replace: true });
     }
-  }, [authReady, firebaseAuthenticated, navigate]);
+  }, [authReady, sessionChecking, firebaseAuthenticated, currentStaff, navigate]);
   return <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#F7F6F2]">
       {
     /* Left Architectural Editorial Column */
@@ -98,7 +100,7 @@ const LoginPage = () => {
     className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 text-sm font-medium text-white bg-[#183D2D] hover:bg-[#112D21] rounded-lg transition-colors disabled:opacity-50"
   >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>{signingIn ? "Verifying..." : "Switch Google Account"}</span>
+                  <span>{signingIn || sessionChecking ? "Verifying..." : "Switch Google Account"}</span>
                 </button>
                 <button
     type="button"
@@ -121,7 +123,7 @@ const LoginPage = () => {
   />
                 </svg>
                 <span>
-                  {!authReady ? "Checking session..." : signingIn ? "Authenticating..." : "Continue with Google"}
+                  {!authReady || sessionChecking ? "Checking session..." : signingIn ? "Authenticating..." : "Continue with Google"}
                 </span>
               </button>}
           </div>

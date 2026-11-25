@@ -52,6 +52,10 @@ const ShootsPage = () => {
       setArchiving(false);
     }
   };
+  const activeDetailShoot = useMemo(
+    () => (detailShoot ? shoots.find((s) => s.id === detailShoot.id) || detailShoot : null),
+    [detailShoot, shoots]
+  );
   return <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -240,15 +244,15 @@ const ShootsPage = () => {
   />
 
       <BookingDetailModal
-    booking={detailShoot ? { category: "SHOOT", data: detailShoot } : null}
+    booking={activeDetailShoot ? { category: "SHOOT", data: activeDetailShoot } : null}
     onClose={() => setDetailShoot(null)}
-    onEdit={detailShoot && (isAdmin || detailShoot.status !== "Completed" && detailShoot.status !== "Cancelled") ? () => {
-      setEditingShoot(detailShoot);
+    onEdit={activeDetailShoot && (isAdmin || activeDetailShoot.status !== "Completed" && activeDetailShoot.status !== "Cancelled") ? () => {
+      setEditingShoot(activeDetailShoot);
       setDetailShoot(null);
       setFormOpen(true);
     } : void 0}
-    onArchive={detailShoot && (isAdmin || detailShoot.status !== "Completed" && detailShoot.status !== "Cancelled") ? () => {
-      setArchiveTarget(detailShoot);
+    onArchive={activeDetailShoot && (isAdmin || activeDetailShoot.status !== "Completed" && activeDetailShoot.status !== "Cancelled") ? () => {
+      setArchiveTarget(activeDetailShoot);
       setDetailShoot(null);
     } : void 0}
   />

@@ -18,13 +18,13 @@ import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WhatsAppRemindersPage } from "./pages/WhatsAppRemindersPage";
 const RequireStaff = ({ children }) => {
-  const { authReady, firebaseAuthenticated } = useAuth();
-  if (!authReady) {
+  const { authReady, sessionChecking, firebaseAuthenticated, currentStaff } = useAuth();
+  if (!authReady || sessionChecking) {
     return <div className="flex min-h-screen items-center justify-center bg-[#F7F6F2] text-sm text-[#6E6C63]">
         Checking your sign-in...
       </div>;
   }
-  if (!firebaseAuthenticated) {
+  if (!firebaseAuthenticated || !currentStaff || !currentStaff.isActive) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;

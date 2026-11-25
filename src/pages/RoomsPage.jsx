@@ -93,6 +93,10 @@ const RoomsPage = () => {
       setBusy(false);
     }
   };
+  const activeDetailBooking = useMemo(
+    () => (detailBooking ? roomBookings.find((b) => b.id === detailBooking.id) || detailBooking : null),
+    [detailBooking, roomBookings]
+  );
   return <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -437,15 +441,15 @@ const RoomsPage = () => {
   />
 
       <BookingDetailModal
-    booking={detailBooking ? { category: "ROOM", data: detailBooking } : null}
+    booking={activeDetailBooking ? { category: "ROOM", data: activeDetailBooking } : null}
     onClose={() => setDetailBooking(null)}
-    onEdit={detailBooking && (isAdmin || detailBooking.status !== "Checked-out" && detailBooking.status !== "Cancelled") ? () => {
-      setEditingBooking(detailBooking);
+    onEdit={activeDetailBooking && (isAdmin || activeDetailBooking.status !== "Checked-out" && activeDetailBooking.status !== "Cancelled") ? () => {
+      setEditingBooking(activeDetailBooking);
       setDetailBooking(null);
       setBookingModalOpen(true);
     } : void 0}
-    onArchive={detailBooking && (isAdmin || detailBooking.status !== "Checked-out" && detailBooking.status !== "Cancelled") ? () => {
-      setArchiveBookingTarget(detailBooking);
+    onArchive={activeDetailBooking && (isAdmin || activeDetailBooking.status !== "Checked-out" && activeDetailBooking.status !== "Cancelled") ? () => {
+      setArchiveBookingTarget(activeDetailBooking);
       setDetailBooking(null);
     } : void 0}
   />

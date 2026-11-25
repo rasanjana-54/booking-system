@@ -47,51 +47,64 @@ function verifySameOriginCsrf(req, res, next) {
   }
   res.status(403).json({ error: "CSRF validation failed: unauthorized request origin." });
 }
-const LOCAL_ADMIN_STAFF = {
-  id: "admin_local",
-  email: SUPER_ADMIN_EMAIL,
-  name: "Villa Administrator",
-  role: "ADMIN",
-  slotNumber: 1,
-  isActive: true,
-  adminEmails: [SUPER_ADMIN_EMAIL]
-};
-async function requireStaffAuth(req, res, next) {
-  const useLocalAdminSession = () => {
-    if (process.env.NODE_ENV === "production") {
+function createRequireStaffAuth(deps = {}) {
+  const verifyToken = deps.verifyIdToken || ((token) => adminAuth.verifyIdToken(token));
+  const getStaffDoc = deps.getStaffDoc || ((token, key) => fsGetDoc(token, "staff", key));
+
+  return async function requireStaffAuth(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       res.status(401).json({ error: "Authentication required." });
       return;
     }
-    req.idToken = "local-admin-token";
-    req.uid = "admin_local";
-    req.userEmail = SUPER_ADMIN_EMAIL;
-    req.userDisplayName = "Villa Administrator";
-    req.staff = LOCAL_ADMIN_STAFF;
-    next();
-  };
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.includes("local-admin-token")) {
-    useLocalAdminSession();
-    return;
-  }
-  const token = authHeader.slice("Bearer ".length).trim();
-  if (!token) {
-    useLocalAdminSession();
-    return;
-  }
-  try {
-    const decoded = await adminAuth.verifyIdToken(token);
+    const token = authHeader.slice("Bearer ".length).trim();
+    if (!token || token === "local-admin-token") {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    let decoded;
+    try {
+      decoded = await verifyToken(token);
+    } catch (err) {
+      console.warn("Firebase token verification failed:", err);
+      const code = typeof err === "object" && err !== null ? err.code : "";
+      if (code === "auth/id-token-expired" || code === "auth/id-token-revoked") {
+        res.status(401).json({ error: "Your session has expired. Please sign in again." });
+        return;
+      }
+      res.status(401).json({ error: "Invalid authentication token." });
+      return;
+    }
+
     const email = (decoded.email || "").trim().toLowerCase();
     if (!email || !decoded.email_verified) {
       res.status(403).json({ error: "Forbidden: A verified Google email is required." });
       return;
     }
+
     req.idToken = token;
     req.uid = decoded.uid;
     req.userEmail = email;
     req.userDisplayName = decoded.name || "Villa Staff";
+
     const key = toEmailKey(email);
-    const staffDoc = await fsGetDoc(token, "staff", key);
+    let staffDoc;
+    try {
+      staffDoc = await getStaffDoc(token, key);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("PERMISSION_DENIED") || msg.includes("(403)")) {
+        res.status(403).json({
+          error: `Access Denied: ${email} is not one of the 6 authorized villa staff accounts.`
+        });
+        return;
+      }
+      console.error("Failed to load staff authorization record:", err);
+      res.status(500).json({ error: "Unable to verify staff authorization." });
+      return;
+    }
+
     if (!staffDoc) {
       if (email === SUPER_ADMIN_EMAIL && req.path === "/auth/session") {
         next();
@@ -102,23 +115,19 @@ async function requireStaffAuth(req, res, next) {
       });
       return;
     }
+
     if (!staffDoc.isActive) {
       res.status(403).json({
         error: `Account Deactivated: ${email} has been deactivated by the administrator.`
       });
       return;
     }
+
     req.staff = staffDoc;
     next();
-  } catch (err) {
-    console.warn("Firebase token verification failed:", err);
-    if (process.env.NODE_ENV === "production") {
-      res.status(401).json({ error: "Invalid authentication token." });
-      return;
-    }
-    useLocalAdminSession();
-  }
+  };
 }
+const requireStaffAuth = createRequireStaffAuth();
 function requireAdminRole(req, res, next) {
   if (!req.staff || req.staff.role !== "ADMIN") {
     res.status(403).json({ error: "Forbidden: Administrator privileges required." });
@@ -127,10 +136,10 @@ function requireAdminRole(req, res, next) {
   next();
 }
 export {
-  LOCAL_ADMIN_STAFF,
   SUPER_ADMIN_EMAIL,
   apiRateLimiter,
   authRateLimiter,
+  createRequireStaffAuth,
   requireAdminRole,
   requireStaffAuth,
   toEmailKey,

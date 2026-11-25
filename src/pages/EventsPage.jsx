@@ -52,6 +52,10 @@ const EventsPage = () => {
       setArchiving(false);
     }
   };
+  const activeDetailEvent = useMemo(
+    () => (detailEvent ? events.find((e) => e.id === detailEvent.id) || detailEvent : null),
+    [detailEvent, events]
+  );
   return <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -244,15 +248,15 @@ const EventsPage = () => {
   />
 
       <BookingDetailModal
-    booking={detailEvent ? { category: "EVENT", data: detailEvent } : null}
+    booking={activeDetailEvent ? { category: "EVENT", data: activeDetailEvent } : null}
     onClose={() => setDetailEvent(null)}
-    onEdit={detailEvent && (isAdmin || detailEvent.status !== "Completed" && detailEvent.status !== "Cancelled") ? () => {
-      setEditingEvent(detailEvent);
+    onEdit={activeDetailEvent && (isAdmin || activeDetailEvent.status !== "Completed" && activeDetailEvent.status !== "Cancelled") ? () => {
+      setEditingEvent(activeDetailEvent);
       setDetailEvent(null);
       setFormOpen(true);
     } : void 0}
-    onArchive={detailEvent && (isAdmin || detailEvent.status !== "Completed" && detailEvent.status !== "Cancelled") ? () => {
-      setArchiveTarget(detailEvent);
+    onArchive={activeDetailEvent && (isAdmin || activeDetailEvent.status !== "Completed" && activeDetailEvent.status !== "Cancelled") ? () => {
+      setArchiveTarget(activeDetailEvent);
       setDetailEvent(null);
     } : void 0}
   />

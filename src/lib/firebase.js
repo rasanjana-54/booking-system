@@ -1,12 +1,26 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { doc, getDocFromServer, getFirestore } from "firebase/firestore";
+import { connectAuthEmulator, getAuth, GoogleAuthProvider } from "firebase/auth";
+import { connectFirestoreEmulator, doc, getDocFromServer, getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json" with { type: "json" };
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+let analytics = null;
+if (typeof window !== "undefined") {
+  try {
+    analytics = getAnalytics(app);
+  } catch {
+    analytics = null;
+  }
+}
 const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 const auth = getAuth(app);
+if (import.meta.env?.VITE_USE_FIREBASE_EMULATOR === "true") {
+  const authHost = import.meta.env?.VITE_FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
+  const fsHost = import.meta.env?.VITE_FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
+  const [fsHostname, fsPort] = fsHost.split(":");
+  connectAuthEmulator(auth, `http://${authHost}`, { disableWarnings: true });
+  connectFirestoreEmulator(db, fsHostname, Number(fsPort) || 8080);
+}
 const googleAuthProvider = new GoogleAuthProvider();
 googleAuthProvider.setCustomParameters({ prompt: "select_account" });
 async function testFirestoreConnection() {
@@ -18,7 +32,6 @@ async function testFirestoreConnection() {
     }
   }
 }
-testFirestoreConnection();
 export {
   analytics,
   auth,

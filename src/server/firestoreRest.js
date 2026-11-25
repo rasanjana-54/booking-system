@@ -1,6 +1,12 @@
 import { FIREBASE_PROJECT_ID, FIRESTORE_DATABASE_ID } from "./firebaseAdmin.js";
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents`;
 const DOC_PATH_PREFIX = `projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DATABASE_ID}/documents`;
+function getBaseUrl() {
+  const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST?.trim();
+  if (emulatorHost) {
+    return `http://${emulatorHost}/v1/${DOC_PATH_PREFIX}`;
+  }
+  return `https://firestore.googleapis.com/v1/${DOC_PATH_PREFIX}`;
+}
 const SERVER_TIMESTAMP = { __serverTimestamp: true };
 function isServerTimestamp(val) {
   return typeof val === "object" && val !== null && "__serverTimestamp" in val && val.__serverTimestamp === true;
@@ -80,90 +86,10 @@ function splitPayloadAndTransforms(data) {
   }
   return { fields, fieldTransforms };
 }
-const localStore = {
-  villa_settings: /* @__PURE__ */ new Map([
-    [
-      "general",
-      {
-        id: "general",
-        villaName: "Urban Escape Villa",
-        timezone: "Asia/Colombo",
-        currency: "LKR",
-        inactivityTimeoutMinutes: 30,
-        authorizedEmails: ["rnimsara54@gmail.com"],
-        adminEmails: ["rnimsara54@gmail.com"],
-        updatedBy: "admin_local",
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ]
-  ]),
-  staff: /* @__PURE__ */ new Map([
-    [
-      "rnimsara54@gmail.com",
-      {
-        id: "rnimsara54@gmail.com",
-        email: "rnimsara54@gmail.com",
-        name: "Villa Administrator",
-        role: "ADMIN",
-        slotNumber: 1,
-        isActive: true,
-        adminEmails: ["rnimsara54@gmail.com"],
-        createdBy: "admin_local",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ]
-  ]),
-  room_types: /* @__PURE__ */ new Map([
-    [
-      "suite_king_room",
-      {
-        id: "suite_king_room",
-        roomCode: "RM-01",
-        name: "King Room",
-        description: "King room",
-        maxCapacity: 2,
-        price: 5e4,
-        status: "Available",
-        isArchived: false,
-        authorizedEmails: ["rnimsara54@gmail.com"],
-        createdBy: "admin_local",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ],
-    [
-      "suite_queen_room",
-      {
-        id: "suite_queen_room",
-        roomCode: "RM-02",
-        name: "Queen Room",
-        description: "Queen room",
-        maxCapacity: 2,
-        price: 5e4,
-        status: "Available",
-        isArchived: false,
-        authorizedEmails: ["rnimsara54@gmail.com"],
-        createdBy: "admin_local",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ]
-  ]),
-  events: /* @__PURE__ */ new Map(),
-  shoots: /* @__PURE__ */ new Map(),
-  room_bookings: /* @__PURE__ */ new Map(),
-  payments: /* @__PURE__ */ new Map(),
-  blocked_schedules: /* @__PURE__ */ new Map(),
-  audit_logs: /* @__PURE__ */ new Map()
-};
-function getLocalCollection(name) {
-  if (!localStore[name]) {
-    localStore[name] = /* @__PURE__ */ new Map();
-  }
-  return localStore[name];
-}
 async function firestoreFetch(url, idToken, init = {}) {
+  if (!idToken || typeof idToken !== "string") {
+    throw new Error("Authentication required: missing Firebase ID token.");
+  }
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -188,13 +114,7 @@ async function assertFirestoreSuccess(res, operation) {
   );
 }
 async function fsGetDoc(idToken, collectionName, docId) {
-  if (!idToken || idToken === "local-admin-token") {
-    const col = getLocalCollection(collectionName);
-    const doc = col.get(docId);
-    if (!doc) return null;
-    return { ...doc, id: docId };
-  }
-  const res = await firestoreFetch(`${BASE_URL}/${collectionName}/${docId}`, idToken, {
+  const res = await firestoreFetch(`${getBaseUrl()}/${collectionName}/${docId}`, idToken, {
     method: "GET"
   });
   if (res.status === 404) return null;
@@ -203,23 +123,7 @@ async function fsGetDoc(idToken, collectionName, docId) {
   return decodeDoc(raw);
 }
 async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
-  const queryLocal = () => {
-    const col = getLocalCollection(collectionName);
-    const result = [];
-    for (const [id, doc] of col.entries()) {
-      const arr = doc[fieldPath];
-      if (Array.isArray(arr) && arr.includes(value)) {
-        result.push({ ...doc, id });
-      } else if (!arr) {
-        result.push({ ...doc, id });
-      }
-    }
-    return result;
-  };
-  if (!idToken || idToken === "local-admin-token") {
-    return queryLocal();
-  }
-  const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
+  const res = await firestoreFetch(`${getBaseUrl()}:runQuery`, idToken, {
     method: "POST",
     body: JSON.stringify({
       structuredQuery: {
@@ -239,13 +143,7 @@ async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
   return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
 }
 async function fsQueryCollection(idToken, collectionName) {
-  if (!idToken || idToken === "local-admin-token") {
-    return Array.from(getLocalCollection(collectionName), ([id, doc]) => ({
-      ...doc,
-      id
-    }));
-  }
-  const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
+  const res = await firestoreFetch(`${getBaseUrl()}:runQuery`, idToken, {
     method: "POST",
     body: JSON.stringify({
       structuredQuery: {
@@ -257,32 +155,8 @@ async function fsQueryCollection(idToken, collectionName) {
   const rows = await res.json();
   return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
 }
-function applyLocalOps(ops) {
-  for (const op of ops) {
-    const col = getLocalCollection(op.collection);
-    if (op.type === "delete") {
-      col.delete(op.docId);
-      continue;
-    }
-    const current = col.get(op.docId) || { id: op.docId };
-    const rawData = op.data || {};
-    const cleanData = {};
-    for (const [k, v] of Object.entries(rawData)) {
-      cleanData[k] = isServerTimestamp(v) ? new Date().toISOString() : v;
-    }
-    if (op.type === "set") {
-      col.set(op.docId, { ...cleanData, id: op.docId });
-    } else {
-      col.set(op.docId, { ...current, ...cleanData, id: op.docId });
-    }
-  }
-}
 async function fsCommit(idToken, ops) {
   if (ops.length === 0) return;
-  if (!idToken || idToken === "local-admin-token") {
-    applyLocalOps(ops);
-    return;
-  }
   const writes = [];
   for (const op of ops) {
     const docName = `${DOC_PATH_PREFIX}/${op.collection}/${op.docId}`;
@@ -309,7 +183,7 @@ async function fsCommit(idToken, ops) {
     }
     writes.push(writeEntry);
   }
-  const res = await firestoreFetch(`${BASE_URL}:commit`, idToken, {
+  const res = await firestoreFetch(`${getBaseUrl()}:commit`, idToken, {
     method: "POST",
     body: JSON.stringify({ writes })
   });

@@ -220,6 +220,12 @@ const CalendarPage = () => {
     ).length
   };
   const totalMonthlyBookings = monthlySummary.events + monthlySummary.shoots + monthlySummary.rooms;
+  const activeDetailBooking = useMemo(() => {
+    if (!detailBooking) return null;
+    const list = detailBooking.category === "EVENT" ? events : detailBooking.category === "SHOOT" ? shoots : roomBookings;
+    const latest = list.find((item) => item.id === detailBooking.data.id);
+    return latest ? { category: detailBooking.category, data: latest } : detailBooking;
+  }, [detailBooking, events, shoots, roomBookings]);
   const summaryCards = [
     { label: "Total Bookings", value: totalMonthlyBookings, icon: CalendarDays, color: "bg-[#EEF3F0]" },
     { label: "Event Bookings", value: monthlySummary.events, icon: PartyPopper, color: "bg-[#FEF7EC]" },
@@ -794,7 +800,7 @@ const CalendarPage = () => {
         </div>}
 
       <BookingDetailModal
-    booking={detailBooking}
+    booking={activeDetailBooking}
     onClose={() => setDetailBooking(null)}
   />
     </div>;

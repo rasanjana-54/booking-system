@@ -24,6 +24,9 @@ function timestampToMs(ts) {
   if (typeof ts === "object" && typeof ts.toMillis === "function") {
     return ts.toMillis();
   }
+  if (typeof ts === "object" && typeof ts.seconds === "number") {
+    return ts.seconds * 1e3;
+  }
   return 0;
 }
 function formatColomboDate(dateStr) {
@@ -40,7 +43,7 @@ function formatColomboDate(dateStr) {
 }
 function formatColomboTimestamp(ts) {
   if (!ts) return "\u2014";
-  const dt = typeof ts === "string" ? new Date(ts) : typeof ts === "object" && typeof ts.toDate === "function" ? ts.toDate() : null;
+  const dt = typeof ts === "string" ? new Date(ts) : typeof ts === "object" && typeof ts.toDate === "function" ? ts.toDate() : typeof ts === "object" && typeof ts.seconds === "number" ? new Date(ts.seconds * 1e3) : null;
   if (!dt || Number.isNaN(dt.getTime())) return "\u2014";
   return new Intl.DateTimeFormat("en-US", {
     timeZone: VILLA_TIMEZONE,

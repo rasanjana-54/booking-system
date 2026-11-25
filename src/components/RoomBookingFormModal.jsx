@@ -97,7 +97,7 @@ const RoomBookingFormModal = ({
         });
       }
     }
-  }, [open, editingBooking, defaultRoomTypeId, reset]);
+  }, [open, editingBooking, defaultRoomTypeId, firstAvailableRoom?.id, reset]);
   const wRoomTypeId = watch("roomTypeId");
   const wInDate = watch("checkInDate");
   const wInTime = watch("checkInTime");

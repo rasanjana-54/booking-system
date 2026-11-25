@@ -47,6 +47,25 @@ import {
 const apiRouter = Router();
 const reminderStore = new FirestoreReminderStore();
 const whatsAppSender = new MetaWhatsAppSender();
+const lockQueues = /* @__PURE__ */ new Map();
+async function withLock(key, fn) {
+  const prev = lockQueues.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => current);
+  lockQueues.set(key, chained);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (lockQueues.get(key) === chained) {
+      lockQueues.delete(key);
+    }
+  }
+}
 function secretsMatch(candidate, expected) {
   const candidateBuffer = Buffer.from(candidate);
   const expectedBuffer = Buffer.from(expected);
@@ -379,10 +398,9 @@ apiRouter.post("/auth/session", async (req, res) => {
             docId: id,
             data: {
               isArchived: true,
-              updatedBy: uid,
               updatedAt: SERVER_TIMESTAMP
             },
-            updateFields: ["isArchived", "updatedBy", "updatedAt"]
+            updateFields: ["isArchived"]
           });
         }
       }
@@ -437,6 +455,20 @@ apiRouter.post("/auth/logout", async (req, res) => {
     handleRouteError(res, err, "Failed to log sign-out event.");
   }
 });
+function assertBookingMutableByRole(staff, existing, res) {
+  if (staff.role === "ADMIN") return true;
+  if (existing.isArchived) {
+    res.status(403).json({ error: "Forbidden: Archived records can only be modified by an administrator." });
+    return false;
+  }
+  if (existing.status === "Completed" || existing.status === "Cancelled" || existing.status === "Checked-out") {
+    res.status(403).json({
+      error: `Forbidden: ${existing.status} bookings can only be modified by an administrator.`
+    });
+    return false;
+  }
+  return true;
+}
 apiRouter.get("/bootstrap", async (req, res) => {
   try {
     const idToken = req.idToken;
@@ -491,105 +523,237 @@ apiRouter.get("/bootstrap", async (req, res) => {
     handleRouteError(res, err, "Failed to load villa operations data.");
   }
 });
+apiRouter.get("/events", async (req, res) => {
+  try {
+    const includeArchived = req.query.includeArchived === "true";
+    const events = await fsQueryCollection(req.idToken, "events");
+    const filtered = includeArchived ? events : events.filter((e) => !e.isArchived);
+    filtered.sort((a, b) => b.eventDate.localeCompare(a.eventDate));
+    res.json({ events: filtered });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load event bookings.");
+  }
+});
+apiRouter.get("/events/:id", async (req, res) => {
+  try {
+    const event = await fsGetDoc(req.idToken, "events", req.params.id);
+    if (!event) {
+      res.status(404).json({ error: "Event booking not found." });
+      return;
+    }
+    res.json({ event });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load event booking.");
+  }
+});
+apiRouter.get("/shoots", async (req, res) => {
+  try {
+    const includeArchived = req.query.includeArchived === "true";
+    const shoots = await fsQueryCollection(req.idToken, "shoots");
+    const filtered = includeArchived ? shoots : shoots.filter((s) => !s.isArchived);
+    filtered.sort((a, b) => b.shootDate.localeCompare(a.shootDate));
+    res.json({ shoots: filtered });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load photoshoot bookings.");
+  }
+});
+apiRouter.get("/shoots/:id", async (req, res) => {
+  try {
+    const shoot = await fsGetDoc(req.idToken, "shoots", req.params.id);
+    if (!shoot) {
+      res.status(404).json({ error: "Photoshoot booking not found." });
+      return;
+    }
+    res.json({ shoot });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load photoshoot booking.");
+  }
+});
+apiRouter.get("/room-types", async (req, res) => {
+  try {
+    const includeArchived = req.query.includeArchived === "true";
+    const roomTypes = await fsQueryCollection(req.idToken, "room_types");
+    const filtered = includeArchived ? roomTypes : roomTypes.filter((r) => !r.isArchived);
+    filtered.sort((a, b) => a.roomCode.localeCompare(b.roomCode));
+    res.json({ roomTypes: filtered });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load room types.");
+  }
+});
+apiRouter.get("/room-bookings", async (req, res) => {
+  try {
+    const includeArchived = req.query.includeArchived === "true";
+    const roomBookings = await fsQueryCollection(req.idToken, "room_bookings");
+    const filtered = includeArchived ? roomBookings : roomBookings.filter((r) => !r.isArchived);
+    filtered.sort((a, b) => b.checkInDate.localeCompare(a.checkInDate));
+    res.json({ roomBookings: filtered });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load room bookings.");
+  }
+});
+apiRouter.get("/room-bookings/:id", async (req, res) => {
+  try {
+    const roomBooking = await fsGetDoc(req.idToken, "room_bookings", req.params.id);
+    if (!roomBooking) {
+      res.status(404).json({ error: "Room booking not found." });
+      return;
+    }
+    res.json({ roomBooking });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load room booking.");
+  }
+});
+apiRouter.get("/payments", async (req, res) => {
+  try {
+    const payments = await fsQueryCollection(req.idToken, "payments");
+    payments.sort((a, b) => timestampToMs(b.createdAt) - timestampToMs(a.createdAt));
+    res.json({ payments });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load payments.");
+  }
+});
+apiRouter.get("/calendar/blocks", async (req, res) => {
+  try {
+    const blockedSchedules = await fsQueryCollection(req.idToken, "blocked_schedules");
+    blockedSchedules.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    res.json({ blockedSchedules });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load blocked schedules.");
+  }
+});
+apiRouter.get("/staff", requireAdminRole, async (req, res) => {
+  try {
+    const emailLower = req.staff.email.toLowerCase();
+    const staffMembers = await fsQueryArrayContains(req.idToken, "staff", "adminEmails", emailLower);
+    staffMembers.sort((a, b) => a.slotNumber - b.slotNumber);
+    res.json({ staffMembers });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load staff accounts.");
+  }
+});
+apiRouter.get("/audit-logs", requireAdminRole, async (req, res) => {
+  try {
+    const emailLower = req.staff.email.toLowerCase();
+    const auditLogs = await fsQueryArrayContains(req.idToken, "audit_logs", "adminEmails", emailLower);
+    auditLogs.sort((a, b) => timestampToMs(b.timestamp) - timestampToMs(a.timestamp));
+    res.json({ auditLogs });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load audit logs.");
+  }
+});
+apiRouter.get("/settings", async (req, res) => {
+  try {
+    const settings = await fsGetDoc(req.idToken, "villa_settings", "general");
+    res.json({ settings });
+  } catch (err) {
+    handleRouteError(res, err, "Failed to load villa settings.");
+  }
+});
 apiRouter.post("/events", async (req, res) => {
   try {
     const input = eventBookingSchema.parse(req.body);
     const idToken = req.idToken;
     const staff = req.staff;
     const emailLower = staff.email.toLowerCase();
-    if (input.status !== "Cancelled") {
-      const [events, shoots, blocks] = await Promise.all([
-        fsQueryCollection(idToken, "events"),
-        fsQueryCollection(idToken, "shoots"),
-        fsQueryCollection(idToken, "blocked_schedules")
-      ]);
-      const conflict = findVenueScheduleConflict({
-        date: input.eventDate,
+    const result = await withLock(`venue:${input.eventDate}`, async () => {
+      if (input.status !== "Cancelled") {
+        const [events, shoots, blocks] = await Promise.all([
+          fsQueryCollection(idToken, "events"),
+          fsQueryCollection(idToken, "shoots"),
+          fsQueryCollection(idToken, "blocked_schedules")
+        ]);
+        const conflict = findVenueScheduleConflict({
+          date: input.eventDate,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          venueResource: input.venueResource,
+          bookingKind: "EVENT",
+          events,
+          shoots,
+          blocks
+        });
+        if (conflict) {
+          return { conflict };
+        }
+      }
+      const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
+      const eventId = generateDocId("evt");
+      const bookingCode = generateBookingCode("EVT");
+      const { duePayment, paymentStatus } = computePaymentSummary(
+        input.totalPayment,
+        input.advancePayment
+      );
+      const eventData = {
+        bookingCode,
+        eventType: input.eventType,
+        venueResource: input.venueResource,
+        eventDate: input.eventDate,
         startTime: input.startTime,
         endTime: input.endTime,
-        venueResource: input.venueResource,
-        bookingKind: "EVENT",
-        events,
-        shoots,
-        blocks
-      });
-      if (conflict) {
-        res.status(409).json({ error: conflict });
-        return;
-      }
-    }
-    const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
-    const eventId = generateDocId("evt");
-    const bookingCode = generateBookingCode("EVT");
-    const { duePayment, paymentStatus } = computePaymentSummary(
-      input.totalPayment,
-      input.advancePayment
-    );
-    const eventData = {
-      bookingCode,
-      eventType: input.eventType,
-      venueResource: input.venueResource,
-      eventDate: input.eventDate,
-      startTime: input.startTime,
-      endTime: input.endTime,
-      paxCount: Number(input.paxCount),
-      customerName: input.customerName.trim(),
-      customerPhone: input.customerPhone.trim(),
-      totalPayment: Number(input.totalPayment),
-      advancePayment: Number(input.advancePayment),
-      duePayment,
-      paymentStatus,
-      status: input.status,
-      isArchived: false,
-      authorizedEmails,
-      createdBy: req.uid,
-      createdByName: staff.name,
-      createdAt: SERVER_TIMESTAMP,
-      updatedAt: SERVER_TIMESTAMP
-    };
-    if (input.specialNotes && input.specialNotes.trim()) {
-      eventData.specialNotes = input.specialNotes.trim();
-    }
-    const ops = [
-      { type: "set", collection: "events", docId: eventId, data: eventData }
-    ];
-    if (input.advancePayment > 0) {
-      const payData = {
-        paymentCode: generateBookingCode("PAY"),
-        bookingId: eventId,
-        bookingCode,
-        bookingType: "EVENT",
+        paxCount: Number(input.paxCount),
         customerName: input.customerName.trim(),
-        amount: Number(input.advancePayment),
-        paymentMethod: input.paymentMethod,
-        paymentDate: getColomboDateStr(),
-        notes: "Initial advance payment at booking creation",
-        isAdjustment: false,
-        isVoided: false,
-        recordedBy: req.uid,
-        recordedByName: staff.name,
+        customerPhone: input.customerPhone.trim(),
+        totalPayment: Number(input.totalPayment),
+        advancePayment: Number(input.advancePayment),
+        duePayment,
+        paymentStatus,
+        status: input.status,
+        isArchived: false,
         authorizedEmails,
-        createdAt: SERVER_TIMESTAMP
+        createdBy: req.uid,
+        createdByName: staff.name,
+        createdAt: SERVER_TIMESTAMP,
+        updatedAt: SERVER_TIMESTAMP
       };
-      if (input.referenceNumber && input.referenceNumber.trim()) {
-        payData.referenceNumber = input.referenceNumber.trim();
+      if (input.specialNotes && input.specialNotes.trim()) {
+        eventData.specialNotes = input.specialNotes.trim();
       }
-      ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      const ops = [
+        { type: "set", collection: "events", docId: eventId, data: eventData }
+      ];
+      if (input.advancePayment > 0) {
+        const payData = {
+          paymentCode: generateBookingCode("PAY"),
+          bookingId: eventId,
+          bookingCode,
+          bookingType: "EVENT",
+          customerName: input.customerName.trim(),
+          amount: Number(input.advancePayment),
+          paymentMethod: input.paymentMethod,
+          paymentDate: getColomboDateStr(),
+          notes: "Initial advance payment at booking creation",
+          isAdjustment: false,
+          isVoided: false,
+          recordedBy: req.uid,
+          recordedByName: staff.name,
+          authorizedEmails,
+          createdAt: SERVER_TIMESTAMP
+        };
+        if (input.referenceNumber && input.referenceNumber.trim()) {
+          payData.referenceNumber = input.referenceNumber.trim();
+        }
+        ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      }
+      ops.push(
+        buildAuditOp({
+          uid: req.uid,
+          email: staff.email,
+          name: staff.name,
+          action: "EVENT_CREATED",
+          recordType: "EVENT",
+          recordId: bookingCode,
+          summary: `Created ${input.eventType} event for ${input.customerName.trim()} on ${input.eventDate} (${input.startTime}-${input.endTime})`,
+          adminEmails
+        })
+      );
+      await fsCommit(idToken, ops);
+      return { id: eventId, bookingCode };
+    });
+    if (result.conflict) {
+      res.status(409).json({ error: result.conflict });
+      return;
     }
-    ops.push(
-      buildAuditOp({
-        uid: req.uid,
-        email: staff.email,
-        name: staff.name,
-        action: "EVENT_CREATED",
-        recordType: "EVENT",
-        recordId: bookingCode,
-        summary: `Created ${input.eventType} event for ${input.customerName.trim()} on ${input.eventDate} (${input.startTime}-${input.endTime})`,
-        adminEmails
-      })
-    );
-    await fsCommit(idToken, ops);
-    res.status(201).json({ id: eventId, bookingCode });
+    res.status(201).json(result);
   } catch (err) {
     handleRouteError(res, err, "Failed to create event booking.");
   }
@@ -622,6 +786,7 @@ apiRouter.patch("/events/:id", async (req, res) => {
       res.status(404).json({ error: "Event booking not found." });
       return;
     }
+    if (!assertBookingMutableByRole(staff, existing, res)) return;
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
         fsQueryCollection(idToken, "events"),
@@ -711,100 +876,106 @@ apiRouter.post("/shoots", async (req, res) => {
       res.status(400).json({ error: "Select an active authorized staff member." });
       return;
     }
-    if (input.status !== "Cancelled") {
-      const [events, shoots, blocks] = await Promise.all([
-        fsQueryCollection(idToken, "events"),
-        fsQueryCollection(idToken, "shoots"),
-        fsQueryCollection(idToken, "blocked_schedules")
-      ]);
-      const conflict = findVenueScheduleConflict({
-        date: input.shootDate,
+    const result = await withLock(`venue:${input.shootDate}`, async () => {
+      if (input.status !== "Cancelled") {
+        const [events, shoots, blocks] = await Promise.all([
+          fsQueryCollection(idToken, "events"),
+          fsQueryCollection(idToken, "shoots"),
+          fsQueryCollection(idToken, "blocked_schedules")
+        ]);
+        const conflict = findVenueScheduleConflict({
+          date: input.shootDate,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          venueResource: input.venueResource,
+          bookingKind: "SHOOT",
+          events,
+          shoots,
+          blocks
+        });
+        if (conflict) {
+          return { conflict };
+        }
+      }
+      const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
+      const shootId = generateDocId("sht");
+      const bookingCode = generateBookingCode("SHT");
+      const { duePayment, paymentStatus } = computePaymentSummary(
+        input.totalPayment,
+        input.advancePayment
+      );
+      const shootData = {
+        bookingCode,
+        shootDate: input.shootDate,
+        shootType: input.shootType,
+        venueResource: input.venueResource,
         startTime: input.startTime,
         endTime: input.endTime,
-        venueResource: input.venueResource,
-        bookingKind: "SHOOT",
-        events,
-        shoots,
-        blocks
-      });
-      if (conflict) {
-        res.status(409).json({ error: conflict });
-        return;
-      }
-    }
-    const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
-    const shootId = generateDocId("sht");
-    const bookingCode = generateBookingCode("SHT");
-    const { duePayment, paymentStatus } = computePaymentSummary(
-      input.totalPayment,
-      input.advancePayment
-    );
-    const shootData = {
-      bookingCode,
-      shootDate: input.shootDate,
-      shootType: input.shootType,
-      venueResource: input.venueResource,
-      startTime: input.startTime,
-      endTime: input.endTime,
-      paxCount: Number(input.paxCount),
-      assignedStaffId: assignedStaffEmail,
-      customerName: input.customerName.trim(),
-      customerPhone: input.customerPhone.trim(),
-      totalPayment: Number(input.totalPayment),
-      advancePayment: Number(input.advancePayment),
-      duePayment,
-      paymentStatus,
-      status: input.status,
-      isArchived: false,
-      authorizedEmails,
-      createdBy: req.uid,
-      createdByName: staff.name,
-      createdAt: SERVER_TIMESTAMP,
-      updatedAt: SERVER_TIMESTAMP
-    };
-    if (input.specialNotes && input.specialNotes.trim()) {
-      shootData.specialNotes = input.specialNotes.trim();
-    }
-    const ops = [
-      { type: "set", collection: "shoots", docId: shootId, data: shootData }
-    ];
-    if (input.advancePayment > 0) {
-      const payData = {
-        paymentCode: generateBookingCode("PAY"),
-        bookingId: shootId,
-        bookingCode,
-        bookingType: "SHOOT",
+        paxCount: Number(input.paxCount),
+        assignedStaffId: assignedStaffEmail,
         customerName: input.customerName.trim(),
-        amount: Number(input.advancePayment),
-        paymentMethod: input.paymentMethod,
-        paymentDate: getColomboDateStr(),
-        notes: "Initial advance payment at shoot creation",
-        isAdjustment: false,
-        isVoided: false,
-        recordedBy: req.uid,
-        recordedByName: staff.name,
+        customerPhone: input.customerPhone.trim(),
+        totalPayment: Number(input.totalPayment),
+        advancePayment: Number(input.advancePayment),
+        duePayment,
+        paymentStatus,
+        status: input.status,
+        isArchived: false,
         authorizedEmails,
-        createdAt: SERVER_TIMESTAMP
+        createdBy: req.uid,
+        createdByName: staff.name,
+        createdAt: SERVER_TIMESTAMP,
+        updatedAt: SERVER_TIMESTAMP
       };
-      if (input.referenceNumber && input.referenceNumber.trim()) {
-        payData.referenceNumber = input.referenceNumber.trim();
+      if (input.specialNotes && input.specialNotes.trim()) {
+        shootData.specialNotes = input.specialNotes.trim();
       }
-      ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      const ops = [
+        { type: "set", collection: "shoots", docId: shootId, data: shootData }
+      ];
+      if (input.advancePayment > 0) {
+        const payData = {
+          paymentCode: generateBookingCode("PAY"),
+          bookingId: shootId,
+          bookingCode,
+          bookingType: "SHOOT",
+          customerName: input.customerName.trim(),
+          amount: Number(input.advancePayment),
+          paymentMethod: input.paymentMethod,
+          paymentDate: getColomboDateStr(),
+          notes: "Initial advance payment at shoot creation",
+          isAdjustment: false,
+          isVoided: false,
+          recordedBy: req.uid,
+          recordedByName: staff.name,
+          authorizedEmails,
+          createdAt: SERVER_TIMESTAMP
+        };
+        if (input.referenceNumber && input.referenceNumber.trim()) {
+          payData.referenceNumber = input.referenceNumber.trim();
+        }
+        ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      }
+      ops.push(
+        buildAuditOp({
+          uid: req.uid,
+          email: staff.email,
+          name: staff.name,
+          action: "SHOOT_CREATED",
+          recordType: "SHOOT",
+          recordId: bookingCode,
+          summary: `Created ${input.shootType} booking for ${input.customerName.trim()} on ${input.shootDate} (${input.startTime}-${input.endTime})`,
+          adminEmails
+        })
+      );
+      await fsCommit(idToken, ops);
+      return { id: shootId, bookingCode };
+    });
+    if (result.conflict) {
+      res.status(409).json({ error: result.conflict });
+      return;
     }
-    ops.push(
-      buildAuditOp({
-        uid: req.uid,
-        email: staff.email,
-        name: staff.name,
-        action: "SHOOT_CREATED",
-        recordType: "SHOOT",
-        recordId: bookingCode,
-        summary: `Created ${input.shootType} booking for ${input.customerName.trim()} on ${input.shootDate} (${input.startTime}-${input.endTime})`,
-        adminEmails
-      })
-    );
-    await fsCommit(idToken, ops);
-    res.status(201).json({ id: shootId, bookingCode });
+    res.status(201).json(result);
   } catch (err) {
     handleRouteError(res, err, "Failed to create shoot booking.");
   }
@@ -852,6 +1023,7 @@ apiRouter.patch("/shoots/:id", async (req, res) => {
       res.status(404).json({ error: "Photoshoot booking not found." });
       return;
     }
+    if (!assertBookingMutableByRole(staff, existing, res)) return;
     if (input.status !== "Cancelled") {
       const [events, shoots, blocks] = await Promise.all([
         fsQueryCollection(idToken, "events"),
@@ -1063,98 +1235,104 @@ apiRouter.post("/room-bookings", async (req, res) => {
       res.status(404).json({ error: "Selected room suite does not exist or is archived." });
       return;
     }
-    if (input.status !== "Cancelled") {
-      const [roomBookings, blocks] = await Promise.all([
-        fsQueryCollection(idToken, "room_bookings"),
-        fsQueryCollection(idToken, "blocked_schedules")
-      ]);
-      const conflict = findRoomBookingConflict({
-        roomTypeId: input.roomTypeId,
+    const result = await withLock(`room:${input.roomTypeId}`, async () => {
+      if (input.status !== "Cancelled") {
+        const [roomBookings, blocks] = await Promise.all([
+          fsQueryCollection(idToken, "room_bookings"),
+          fsQueryCollection(idToken, "blocked_schedules")
+        ]);
+        const conflict = findRoomBookingConflict({
+          roomTypeId: input.roomTypeId,
+          checkInDate: input.checkInDate,
+          checkInTime: input.checkInTime,
+          checkOutDate: input.checkOutDate,
+          checkOutTime: input.checkOutTime,
+          roomBookings,
+          blocks
+        });
+        if (conflict) {
+          return { conflict };
+        }
+      }
+      const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
+      const bookingId = generateDocId("rom");
+      const bookingCode = generateBookingCode("ROM");
+      const { duePayment, paymentStatus } = computePaymentSummary(
+        input.totalPayment,
+        input.advancePayment
+      );
+      const bookingData = {
+        bookingCode,
+        roomTypeId: roomType.id,
+        roomTypeName: roomType.name,
+        customerName: input.customerName.trim(),
+        customerPhone: input.customerPhone.trim(),
+        foodStatus: input.foodStatus,
         checkInDate: input.checkInDate,
         checkInTime: input.checkInTime,
         checkOutDate: input.checkOutDate,
         checkOutTime: input.checkOutTime,
-        roomBookings,
-        blocks
-      });
-      if (conflict) {
-        res.status(409).json({ error: conflict });
-        return;
-      }
-    }
-    const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
-    const bookingId = generateDocId("rom");
-    const bookingCode = generateBookingCode("ROM");
-    const { duePayment, paymentStatus } = computePaymentSummary(
-      input.totalPayment,
-      input.advancePayment
-    );
-    const bookingData = {
-      bookingCode,
-      roomTypeId: roomType.id,
-      roomTypeName: roomType.name,
-      customerName: input.customerName.trim(),
-      customerPhone: input.customerPhone.trim(),
-      foodStatus: input.foodStatus,
-      checkInDate: input.checkInDate,
-      checkInTime: input.checkInTime,
-      checkOutDate: input.checkOutDate,
-      checkOutTime: input.checkOutTime,
-      totalPayment: Number(input.totalPayment),
-      advancePayment: Number(input.advancePayment),
-      duePayment,
-      paymentStatus,
-      status: input.status,
-      isArchived: false,
-      authorizedEmails,
-      createdBy: req.uid,
-      createdByName: staff.name,
-      createdAt: SERVER_TIMESTAMP,
-      updatedAt: SERVER_TIMESTAMP
-    };
-    if (input.specialNotes && input.specialNotes.trim()) {
-      bookingData.specialNotes = input.specialNotes.trim();
-    }
-    const ops = [
-      { type: "set", collection: "room_bookings", docId: bookingId, data: bookingData }
-    ];
-    if (input.advancePayment > 0) {
-      const payData = {
-        paymentCode: generateBookingCode("PAY"),
-        bookingId,
-        bookingCode,
-        bookingType: "ROOM",
-        customerName: input.customerName.trim(),
-        amount: Number(input.advancePayment),
-        paymentMethod: input.paymentMethod,
-        paymentDate: getColomboDateStr(),
-        notes: "Initial advance payment at room reservation",
-        isAdjustment: false,
-        isVoided: false,
-        recordedBy: req.uid,
-        recordedByName: staff.name,
+        totalPayment: Number(input.totalPayment),
+        advancePayment: Number(input.advancePayment),
+        duePayment,
+        paymentStatus,
+        status: input.status,
+        isArchived: false,
         authorizedEmails,
-        createdAt: SERVER_TIMESTAMP
+        createdBy: req.uid,
+        createdByName: staff.name,
+        createdAt: SERVER_TIMESTAMP,
+        updatedAt: SERVER_TIMESTAMP
       };
-      if (input.referenceNumber && input.referenceNumber.trim()) {
-        payData.referenceNumber = input.referenceNumber.trim();
+      if (input.specialNotes && input.specialNotes.trim()) {
+        bookingData.specialNotes = input.specialNotes.trim();
       }
-      ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      const ops = [
+        { type: "set", collection: "room_bookings", docId: bookingId, data: bookingData }
+      ];
+      if (input.advancePayment > 0) {
+        const payData = {
+          paymentCode: generateBookingCode("PAY"),
+          bookingId,
+          bookingCode,
+          bookingType: "ROOM",
+          customerName: input.customerName.trim(),
+          amount: Number(input.advancePayment),
+          paymentMethod: input.paymentMethod,
+          paymentDate: getColomboDateStr(),
+          notes: "Initial advance payment at room reservation",
+          isAdjustment: false,
+          isVoided: false,
+          recordedBy: req.uid,
+          recordedByName: staff.name,
+          authorizedEmails,
+          createdAt: SERVER_TIMESTAMP
+        };
+        if (input.referenceNumber && input.referenceNumber.trim()) {
+          payData.referenceNumber = input.referenceNumber.trim();
+        }
+        ops.push({ type: "set", collection: "payments", docId: generateDocId("pay"), data: payData });
+      }
+      ops.push(
+        buildAuditOp({
+          uid: req.uid,
+          email: staff.email,
+          name: staff.name,
+          action: "ROOM_BOOKING_CREATED",
+          recordType: "ROOM",
+          recordId: bookingCode,
+          summary: `Reserved ${roomType.name} for ${input.customerName.trim()} (${input.checkInDate} to ${input.checkOutDate})`,
+          adminEmails
+        })
+      );
+      await fsCommit(idToken, ops);
+      return { id: bookingId, bookingCode };
+    });
+    if (result.conflict) {
+      res.status(409).json({ error: result.conflict });
+      return;
     }
-    ops.push(
-      buildAuditOp({
-        uid: req.uid,
-        email: staff.email,
-        name: staff.name,
-        action: "ROOM_BOOKING_CREATED",
-        recordType: "ROOM",
-        recordId: bookingCode,
-        summary: `Reserved ${roomType.name} for ${input.customerName.trim()} (${input.checkInDate} to ${input.checkOutDate})`,
-        adminEmails
-      })
-    );
-    await fsCommit(idToken, ops);
-    res.status(201).json({ id: bookingId, bookingCode });
+    res.status(201).json(result);
   } catch (err) {
     handleRouteError(res, err, "Failed to create room reservation.");
   }
@@ -1193,6 +1371,7 @@ apiRouter.patch("/room-bookings/:id", async (req, res) => {
       res.status(404).json({ error: "Room booking not found." });
       return;
     }
+    if (!assertBookingMutableByRole(staff, existing, res)) return;
     if (!roomType) {
       res.status(404).json({ error: "Selected room suite not found." });
       return;
@@ -1278,6 +1457,11 @@ apiRouter.post("/bookings/:category/:id/archive", async (req, res) => {
       res.status(404).json({ error: "Booking record not found." });
       return;
     }
+    if (!assertBookingMutableByRole(staff, existing, res)) return;
+    if (existing.isArchived) {
+      res.status(409).json({ error: "Booking is already archived." });
+      return;
+    }
     const { adminEmails } = await getAccessLists(idToken, staff.email.toLowerCase());
     await fsCommit(idToken, [
       {
@@ -1321,6 +1505,10 @@ apiRouter.post(
       const existing = await fsGetDoc(idToken, col, id);
       if (!existing) {
         res.status(404).json({ error: "Archived booking not found." });
+        return;
+      }
+      if (!existing.isArchived) {
+        res.status(409).json({ error: "Booking is not archived." });
         return;
       }
       const { adminEmails } = await getAccessLists(idToken, staff.email.toLowerCase());
@@ -1412,88 +1600,101 @@ apiRouter.post("/payments", async (req, res) => {
       return;
     }
     const col = collectionForCategory(input.bookingType);
-    const [booking, allPayments] = await Promise.all([
-      fsGetDoc(
-        idToken,
-        col,
-        input.bookingId
-      ),
-      fsQueryCollection(idToken, "payments")
-    ]);
-    if (!booking) {
-      res.status(404).json({ error: "Target booking no longer exists." });
-      return;
-    }
-    const priorValidTotal = allPayments.filter((p) => p.bookingId === input.bookingId && !p.isVoided).reduce((sum, p) => sum + Number(p.amount), 0);
-    const newTotalPaid = Number((priorValidTotal + input.amount).toFixed(2));
-    if (newTotalPaid < 0) {
-      res.status(400).json({ error: "Resulting total paid balance cannot be negative." });
-      return;
-    }
-    if (newTotalPaid > booking.totalPayment && !(input.allowOverpayment && staff.role === "ADMIN")) {
-      res.status(400).json({
-        error: "Payment would exceed the total booking amount. Admin authorization is required for overpayment."
-      });
-      return;
-    }
-    const { duePayment, paymentStatus } = computePaymentSummary(
-      booking.totalPayment,
-      newTotalPaid
-    );
-    const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
-    const payId = generateDocId("pay");
-    const payCode = generateBookingCode("PAY");
-    const payPayload = {
-      paymentCode: payCode,
-      bookingId: input.bookingId,
-      bookingCode: booking.bookingCode,
-      bookingType: input.bookingType,
-      customerName: booking.customerName,
-      amount: Number(input.amount),
-      paymentMethod: input.paymentMethod,
-      paymentDate: input.paymentDate,
-      isAdjustment: input.isAdjustment,
-      isVoided: false,
-      recordedBy: req.uid,
-      recordedByName: staff.name,
-      authorizedEmails,
-      createdAt: SERVER_TIMESTAMP
-    };
-    if (input.referenceNumber && input.referenceNumber.trim()) {
-      payPayload.referenceNumber = input.referenceNumber.trim();
-    }
-    if (input.notes && input.notes.trim()) {
-      payPayload.notes = input.notes.trim();
-    }
-    if (input.adjustmentReason && input.adjustmentReason.trim()) {
-      payPayload.adjustmentReason = input.adjustmentReason.trim();
-    }
-    await fsCommit(idToken, [
-      { type: "set", collection: "payments", docId: payId, data: payPayload },
-      {
-        type: "update",
-        collection: col,
-        docId: input.bookingId,
-        data: {
-          advancePayment: newTotalPaid,
-          duePayment,
-          paymentStatus,
-          updatedAt: SERVER_TIMESTAMP
+    const result = await withLock(`payment:${input.bookingId}`, async () => {
+      const [booking, allPayments] = await Promise.all([
+        fsGetDoc(
+          idToken,
+          col,
+          input.bookingId
+        ),
+        fsQueryCollection(idToken, "payments")
+      ]);
+      if (!booking) {
+        return { status: 404, error: "Target booking no longer exists." };
+      }
+      if (staff.role !== "ADMIN") {
+        if (booking.isArchived) {
+          return { status: 403, error: "Forbidden: Archived records can only be modified by an administrator." };
+        }
+        if (booking.status === "Completed" || booking.status === "Cancelled" || booking.status === "Checked-out") {
+          return { status: 403, error: `Forbidden: ${booking.status} bookings can only be modified by an administrator.` };
+        }
+      }
+      const priorValidTotal = allPayments.filter((p) => p.bookingId === input.bookingId && !p.isVoided).reduce((sum, p) => sum + Number(p.amount), 0);
+      const newTotalPaid = Number((priorValidTotal + input.amount).toFixed(2));
+      if (newTotalPaid < 0) {
+        return { status: 400, error: "Resulting total paid balance cannot be negative." };
+      }
+      if (newTotalPaid > booking.totalPayment && !(input.allowOverpayment && staff.role === "ADMIN")) {
+        return {
+          status: 400,
+          error: "Payment would exceed the total booking amount. Admin authorization is required for overpayment."
+        };
+      }
+      const { duePayment, paymentStatus } = computePaymentSummary(
+        booking.totalPayment,
+        newTotalPaid
+      );
+      const { authorizedEmails, adminEmails } = await getAccessLists(idToken, emailLower);
+      const payId = generateDocId("pay");
+      const payCode = generateBookingCode("PAY");
+      const payPayload = {
+        paymentCode: payCode,
+        bookingId: input.bookingId,
+        bookingCode: booking.bookingCode,
+        bookingType: input.bookingType,
+        customerName: booking.customerName,
+        amount: Number(input.amount),
+        paymentMethod: input.paymentMethod,
+        paymentDate: input.paymentDate,
+        isAdjustment: input.isAdjustment,
+        isVoided: false,
+        recordedBy: req.uid,
+        recordedByName: staff.name,
+        authorizedEmails,
+        createdAt: SERVER_TIMESTAMP
+      };
+      if (input.referenceNumber && input.referenceNumber.trim()) {
+        payPayload.referenceNumber = input.referenceNumber.trim();
+      }
+      if (input.notes && input.notes.trim()) {
+        payPayload.notes = input.notes.trim();
+      }
+      if (input.adjustmentReason && input.adjustmentReason.trim()) {
+        payPayload.adjustmentReason = input.adjustmentReason.trim();
+      }
+      await fsCommit(idToken, [
+        { type: "set", collection: "payments", docId: payId, data: payPayload },
+        {
+          type: "update",
+          collection: col,
+          docId: input.bookingId,
+          data: {
+            advancePayment: newTotalPaid,
+            duePayment,
+            paymentStatus,
+            updatedAt: SERVER_TIMESTAMP
+          },
+          updateFields: ["advancePayment", "duePayment", "paymentStatus"]
         },
-        updateFields: ["advancePayment", "duePayment", "paymentStatus"]
-      },
-      buildAuditOp({
-        uid: req.uid,
-        email: staff.email,
-        name: staff.name,
-        action: input.isAdjustment ? "PAYMENT_ADJUSTED" : "PAYMENT_RECORDED",
-        recordType: "PAYMENT",
-        recordId: payCode,
-        summary: `${input.isAdjustment ? "Adjustment" : "Payment"} of ${input.amount} (${input.paymentMethod}) on ${booking.bookingCode}. New paid total: ${newTotalPaid}`,
-        adminEmails
-      })
-    ]);
-    res.status(201).json({ id: payId, paymentCode: payCode });
+        buildAuditOp({
+          uid: req.uid,
+          email: staff.email,
+          name: staff.name,
+          action: input.isAdjustment ? "PAYMENT_ADJUSTED" : "PAYMENT_RECORDED",
+          recordType: "PAYMENT",
+          recordId: payCode,
+          summary: `${input.isAdjustment ? "Adjustment" : "Payment"} of ${input.amount} (${input.paymentMethod}) on ${booking.bookingCode}. New paid total: ${newTotalPaid}`,
+          adminEmails
+        })
+      ]);
+      return { id: payId, paymentCode: payCode };
+    });
+    if (result.error) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.status(201).json(result);
   } catch (err) {
     handleRouteError(res, err, "Failed to record payment.");
   }
@@ -1686,18 +1887,37 @@ async function buildSyncOps(idToken, callerUid, allStaff) {
       updateFields: ["adminEmails"]
     });
   }
-  ops.push({
-    type: "update",
-    collection: "villa_settings",
-    docId: "general",
-    data: {
-      authorizedEmails: activeEmails,
-      adminEmails,
-      updatedBy: callerUid,
-      updatedAt: SERVER_TIMESTAMP
-    },
-    updateFields: ["authorizedEmails", "adminEmails", "updatedBy"]
-  });
+  const existingSettings = await fsGetDoc(idToken, "villa_settings", "general");
+  if (existingSettings) {
+    ops.push({
+      type: "update",
+      collection: "villa_settings",
+      docId: "general",
+      data: {
+        authorizedEmails: activeEmails,
+        adminEmails,
+        updatedBy: callerUid,
+        updatedAt: SERVER_TIMESTAMP
+      },
+      updateFields: ["authorizedEmails", "adminEmails", "updatedBy"]
+    });
+  } else {
+    ops.push({
+      type: "set",
+      collection: "villa_settings",
+      docId: "general",
+      data: {
+        villaName: "Urban Escape Villa",
+        timezone: VILLA_TIMEZONE,
+        currency: "LKR",
+        inactivityTimeoutMinutes: 30,
+        authorizedEmails: activeEmails,
+        adminEmails,
+        updatedBy: callerUid,
+        updatedAt: SERVER_TIMESTAMP
+      }
+    });
+  }
   return ops;
 }
 apiRouter.post("/staff", requireAdminRole, async (req, res) => {
@@ -1763,12 +1983,13 @@ apiRouter.post("/staff", requireAdminRole, async (req, res) => {
       adminEmails,
       createdBy: req.uid
     };
-    await fsCommit(idToken, [{ type: "set", collection: "staff", docId: key, data: payload }]);
     const syncOps = await buildSyncOps(idToken, req.uid, [
       ...existingStaff,
       newStaffRecord
     ]);
-    syncOps.push(
+    await fsCommit(idToken, [
+      { type: "set", collection: "staff", docId: key, data: payload },
+      ...syncOps.filter((op) => !(op.collection === "staff" && op.docId === key)),
       buildAuditOp({
         uid: req.uid,
         email: staff.email,
@@ -1779,8 +2000,7 @@ apiRouter.post("/staff", requireAdminRole, async (req, res) => {
         summary: `Provisioned Slot #${nextSlot} (${input.role}) for ${cleanEmail}`,
         adminEmails
       })
-    );
-    await fsCommit(idToken, syncOps);
+    ]);
     res.status(201).json({ id: key, slotNumber: nextSlot });
   } catch (err) {
     handleRouteError(res, err, "Failed to provision staff account.");

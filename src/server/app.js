@@ -47,6 +47,12 @@ function createApp() {
       }
     })
   );
+  app.use("/api", (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
+  });
   app.use("/api/auth", authRateLimiter);
   app.use("/api", apiRateLimiter, verifySameOriginCsrf, apiRouter);
   app.use("/api", (_req, res) => {

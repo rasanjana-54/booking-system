@@ -127,6 +127,12 @@ const DashboardPage = () => {
     list.sort((a, b) => a.date.localeCompare(b.date));
     return list.slice(0, 8);
   }, [activeEvents, activeShoots, activeRooms, todayStr]);
+  const activeSelectedBooking = useMemo(() => {
+    if (!selectedBooking) return null;
+    const list = selectedBooking.category === "EVENT" ? events : selectedBooking.category === "SHOOT" ? shoots : roomBookings;
+    const latest = list.find((item) => item.id === selectedBooking.data.id);
+    return latest ? { category: selectedBooking.category, data: latest } : selectedBooking;
+  }, [selectedBooking, events, shoots, roomBookings]);
   if (loading) {
     return <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -421,7 +427,7 @@ const DashboardPage = () => {
       </section>
 
       <BookingDetailModal
-    booking={selectedBooking}
+    booking={activeSelectedBooking}
     onClose={() => setSelectedBooking(null)}
   />
     </div>;
