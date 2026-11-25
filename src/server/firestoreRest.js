@@ -174,6 +174,19 @@ async function firestoreFetch(url, idToken, init = {}) {
   });
   return res;
 }
+async function assertFirestoreSuccess(res, operation) {
+  if (res.ok) return;
+  const body = await res.text();
+  let detail = body;
+  try {
+    const error = JSON.parse(body).error;
+    detail = error?.status || error?.message || body;
+  } catch {
+  }
+  throw new Error(
+    `Firestore ${operation} failed (${res.status})${detail ? `: ${detail}` : ""}`
+  );
+}
 async function fsGetDoc(idToken, collectionName, docId) {
   if (!idToken || idToken === "local-admin-token") {
     const col = getLocalCollection(collectionName);
@@ -181,22 +194,13 @@ async function fsGetDoc(idToken, collectionName, docId) {
     if (!doc) return null;
     return { ...doc, id: docId };
   }
-  try {
-    const res = await firestoreFetch(`${BASE_URL}/${collectionName}/${docId}`, idToken, {
-      method: "GET"
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) {
-      throw new Error(`Firestore get failed (${res.status})`);
-    }
-    const raw = await res.json();
-    return decodeDoc(raw);
-  } catch {
-    const col = getLocalCollection(collectionName);
-    const doc = col.get(docId);
-    if (!doc) return null;
-    return { ...doc, id: docId };
-  }
+  const res = await firestoreFetch(`${BASE_URL}/${collectionName}/${docId}`, idToken, {
+    method: "GET"
+  });
+  if (res.status === 404) return null;
+  await assertFirestoreSuccess(res, "get");
+  const raw = await res.json();
+  return decodeDoc(raw);
 }
 async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
   const queryLocal = () => {
@@ -215,33 +219,26 @@ async function fsQueryArrayContains(idToken, collectionName, fieldPath, value) {
   if (!idToken || idToken === "local-admin-token") {
     return queryLocal();
   }
-  try {
-    const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
-      method: "POST",
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: collectionName }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath },
-              op: "ARRAY_CONTAINS",
-              value: { stringValue: value }
-            }
+  const res = await firestoreFetch(`${BASE_URL}:runQuery`, idToken, {
+    method: "POST",
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: collectionName }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath },
+            op: "ARRAY_CONTAINS",
+            value: { stringValue: value }
           }
         }
-      })
-    });
-    if (!res.ok) {
-      throw new Error(`Firestore query failed (${res.status})`);
-    }
-    const rows = await res.json();
-    return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
-  } catch {
-    return queryLocal();
-  }
+      }
+    })
+  });
+  await assertFirestoreSuccess(res, "query");
+  const rows = await res.json();
+  return rows.filter((r) => Boolean(r.document)).map((r) => decodeDoc(r.document));
 }
-async function fsCommit(idToken, ops) {
-  if (ops.length === 0) return;
+function applyLocalOps(ops) {
   for (const op of ops) {
     const col = getLocalCollection(op.collection);
     if (op.type === "delete") {
@@ -252,11 +249,7 @@ async function fsCommit(idToken, ops) {
     const rawData = op.data || {};
     const cleanData = {};
     for (const [k, v] of Object.entries(rawData)) {
-      if (isServerTimestamp(v)) {
-        cleanData[k] = (/* @__PURE__ */ new Date()).toISOString();
-      } else {
-        cleanData[k] = v;
-      }
+      cleanData[k] = isServerTimestamp(v) ? new Date().toISOString() : v;
     }
     if (op.type === "set") {
       col.set(op.docId, { ...cleanData, id: op.docId });
@@ -264,42 +257,44 @@ async function fsCommit(idToken, ops) {
       col.set(op.docId, { ...current, ...cleanData, id: op.docId });
     }
   }
+}
+async function fsCommit(idToken, ops) {
+  if (ops.length === 0) return;
   if (!idToken || idToken === "local-admin-token") {
+    applyLocalOps(ops);
     return;
   }
-  try {
-    const writes = [];
-    for (const op of ops) {
-      const docName = `${DOC_PATH_PREFIX}/${op.collection}/${op.docId}`;
-      if (op.type === "delete") {
-        writes.push({ delete: docName });
-        continue;
-      }
-      const data = op.data || {};
-      const { fields, fieldTransforms } = splitPayloadAndTransforms(data);
-      const writeEntry = {
-        update: {
-          name: docName,
-          fields
-        }
-      };
-      if (op.type === "update") {
-        const explicitMask = op.updateFields || Object.keys(fields);
-        writeEntry.updateMask = {
-          fieldPaths: explicitMask.filter((k) => !isServerTimestamp(data[k]))
-        };
-      }
-      if (fieldTransforms.length > 0) {
-        writeEntry.updateTransforms = fieldTransforms;
-      }
-      writes.push(writeEntry);
+  const writes = [];
+  for (const op of ops) {
+    const docName = `${DOC_PATH_PREFIX}/${op.collection}/${op.docId}`;
+    if (op.type === "delete") {
+      writes.push({ delete: docName });
+      continue;
     }
-    await firestoreFetch(`${BASE_URL}:commit`, idToken, {
-      method: "POST",
-      body: JSON.stringify({ writes })
-    });
-  } catch {
+    const data = op.data || {};
+    const { fields, fieldTransforms } = splitPayloadAndTransforms(data);
+    const writeEntry = {
+      update: {
+        name: docName,
+        fields
+      }
+    };
+    if (op.type === "update") {
+      const explicitMask = op.updateFields || Object.keys(fields);
+      writeEntry.updateMask = {
+        fieldPaths: explicitMask.filter((k) => !isServerTimestamp(data[k]))
+      };
+    }
+    if (fieldTransforms.length > 0) {
+      writeEntry.updateTransforms = fieldTransforms;
+    }
+    writes.push(writeEntry);
   }
+  const res = await firestoreFetch(`${BASE_URL}:commit`, idToken, {
+    method: "POST",
+    body: JSON.stringify({ writes })
+  });
+  await assertFirestoreSuccess(res, "commit");
 }
 export {
   SERVER_TIMESTAMP,
